@@ -24,6 +24,10 @@ export function sanitizeDiagnostic(input: string): string {
 export class BackendError extends Error {
   constructor(message: string, readonly phase: string, readonly exitCode?: number | null, readonly signal?: string | null) { super(sanitizeDiagnostic(message)); this.name = 'BackendError'; }
 }
+export class RpcResponseError extends Error {
+  constructor(readonly code: number, message: string) { super(sanitizeDiagnostic(message)); this.name = 'RpcResponseError'; }
+}
+export interface RpcRequestOptions { timeoutMode?: 'close' | 'reject' }
 
 /** Find the native binary. Running npm's .cmd launcher through a shell is deliberately avoided. */
 export async function resolveCodex(override = ''): Promise<string> {
@@ -92,7 +96,7 @@ export class JsonLineRpc extends EventEmitter {
         if (!request) continue;
         this.pending.delete(message.id);
         clearTimeout(request.timer);
-        if (message.error) request.reject(new Error(message.error.message));
+        if (message.error) request.reject(new RpcResponseError(message.error.code, message.error.message));
         else request.resolve(message.result);
       }
     }
@@ -107,12 +111,14 @@ export class JsonLineRpc extends EventEmitter {
     if (this.closed) throw new Error('Codex 尚未连接。');
     this.output.write(`${JSON.stringify(message)}\n`);
   }
-  request<T>(method: string, params: unknown, timeoutMs = 45_000): Promise<T> {
-    this.lastMethod = method;
+  request<T>(method: string, params: unknown, timeoutMs = 45_000, options: RpcRequestOptions = {}): Promise<T> {
+    if (options.timeoutMode !== 'reject') this.lastMethod = method;
     const id = ++this.sequence;
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.close(new BackendError(`Codex 请求超时：${method}（${Math.ceil(timeoutMs / 1000)} 秒）。请检查网络后重新连接。`, method));
+        const error = new BackendError(`Codex 请求超时：${method}（${Math.ceil(timeoutMs / 1000)} 秒）。${options.timeoutMode === 'reject' ? '请稍后重试。' : '请检查网络后重新连接。'}`, method);
+        if (options.timeoutMode === 'reject') { const request = this.pending.get(id); this.pending.delete(id); request?.reject(error); }
+        else this.close(error);
       }, timeoutMs);
       timer.unref();
       this.pending.set(id, { resolve: value => resolve(value as T), reject, timer });

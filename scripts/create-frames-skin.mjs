@@ -7,11 +7,18 @@ import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 
 const project = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const argument = name => { const index = process.argv.indexOf(name); return index < 0 ? null : process.argv[index + 1]; };
-const idleFile = argument('--idle'), idleDirectory = argument('--idle-directory'), rectanglesFile = argument('--idle-source-rects');
+const argument = name => { const index = process.argv.indexOf(name); if (index < 0) return null; const value = process.argv[index + 1]; if (!value || value.startsWith('--')) throw new Error(`Missing value for ${name}`); return value; };
+if (process.argv.includes('--help')) { console.log('Rebuild the committed idle/thinking skin from canonical assets. Optional: --output <directory>, --chrome <executable> (DRAGON_PET_CHROME or CHROME_PATH), --chrome-channel <channel> (DRAGON_PET_CHROME_CHANNEL, default chrome), --ffmpeg <executable> (DRAGON_PET_FFMPEG or FFMPEG_PATH, default ffmpeg on PATH). Source overrides: --idle, --idle-directory, --idle-source-rects, --thinking-directory.'); process.exit(0); }
+const requestedIdle = argument('--idle'), idleDirectory = argument('--idle-directory');
+const defaultIdle = !requestedIdle && !idleDirectory;
+const idleFile = requestedIdle ?? (defaultIdle ? path.join(project, 'assets/animation-redraw-v1/raw/idle-extracted-v1.png') : null);
+const rectanglesFile = argument('--idle-source-rects') ?? (defaultIdle ? path.join(project, 'assets/animation-redraw-v1/review/idle-source-rects.json') : null);
 if (Boolean(idleFile) === Boolean(idleDirectory)) throw new Error('Provide --idle <approved transparent PNG> or --idle-directory <approved PNG frames>. The appearance reference must be transparently extracted with ImageGen; opaque white-background references are rejected.');
-const thinkingDirectory = path.resolve(argument('--thinking-directory') ?? path.join(project, 'release/animation-redraw-v1/thinking'));
-const output = path.join(project, 'assets/skins/silver-dragon-frames');
+const thinkingDirectory = path.resolve(argument('--thinking-directory') ?? path.join(project, 'assets/animation-redraw-v1/selected/thinking'));
+const output = path.resolve(argument('--output') ?? path.join(project, 'assets/skins/silver-dragon-frames'));
+const chrome = argument('--chrome') ?? process.env.DRAGON_PET_CHROME ?? process.env.CHROME_PATH;
+const chromeChannel = argument('--chrome-channel') ?? process.env.DRAGON_PET_CHROME_CHANNEL ?? 'chrome';
+const ffmpeg = argument('--ffmpeg') ?? process.env.DRAGON_PET_FFMPEG ?? process.env.FFMPEG_PATH ?? 'ffmpeg';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const relative = file => path.relative(project, file).replaceAll('\\', '/');
 const sources = [], jobs = [];
@@ -35,7 +42,7 @@ for (let index = 1; index <= 24; index++) {
   assert.equal(bytes.readUInt32BE(16), 272); assert.equal(bytes.readUInt32BE(20), 272);
   sources.push({ file: relative(file), sha256: sha(bytes), encoded: bytes.toString('base64') }); jobs.push({ state: 'thinking', source: sources.length - 1, exactCopy: true });
 }
-const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
+const browser = await chromium.launch({ ...(chrome ? { executablePath: chrome } : { channel: chromeChannel }), headless: true });
 let rendered;
 try {
   const page = await browser.newPage(); await page.setContent('<canvas></canvas>');
@@ -85,7 +92,7 @@ for (const state of ['idle', 'thinking']) {
   }
   assert.equal(paths.length,24,'This bundled skin uses exactly 24 output frames for each action.');
   const atlas=`${state}-atlas.png`;
-  await new Promise((resolve,reject)=>{const child=spawn('E:/Apps/ffmpeg-8.0.1-essentials_build/bin/ffmpeg.exe',['-v','error','-y','-framerate','12','-start_number','1','-i',path.join(output,state,'frame-%02d.png'),'-vf','tile=6x4','-frames:v','1','-pix_fmt','rgba','-update','1',path.join(output,atlas)],{windowsHide:true,stdio:['ignore','ignore','pipe']});let error='';child.stderr.on('data',bytes=>error+=bytes);child.on('error',reject);child.on('close',code=>code===0?resolve():reject(new Error(error)));});
+  await new Promise((resolve,reject)=>{const child=spawn(ffmpeg,['-v','error','-y','-framerate','12','-start_number','1','-i',path.join(output,state,'frame-%02d.png'),'-vf','tile=6x4','-frames:v','1','-pix_fmt','rgba','-update','1',path.join(output,atlas)],{windowsHide:true,stdio:['ignore','ignore','pipe']});let error='';child.stderr.on('data',bytes=>error+=bytes);child.on('error',reject);child.on('close',code=>code===0?resolve():reject(new Error(error)));});
   const atlasBytes=await fs.readFile(path.join(output,atlas));
   assert.equal(atlasBytes.readUInt32BE(16),1632);assert.equal(atlasBytes.readUInt32BE(20),1088);
   const fps=12;manifest.animations[state]={frames:[atlas],fps,loop:true,atlas:{columns:6,rows:4,indices:Array.from({length:24},(_,index)=>index)}};

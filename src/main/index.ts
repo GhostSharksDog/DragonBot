@@ -14,6 +14,7 @@ import { animationFrameAt, animationFrameCount, skinFrameLayout, pointInSpriteOu
 import { effectiveAnimationKey, roamingAnimationMotion } from '../shared/animation-state';
 import { rigFiles, rigHitTest, sampleRigPose, transitionRigPlayback, validateRigImageSize, type RigPlayback } from '../shared/rig';
 import { QuickOutsideClickMonitor, rawMouseHelperPath, shouldDismissQuickClick } from './quick-outside-click';
+import { createQuickBubbleShape, quickBubbleHit } from '../shared/bubble-shape';
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'pet-skin', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 if (process.env.DRAGON_PET_DATA_DIR) app.setPath('userData', path.resolve(process.env.DRAGON_PET_DATA_DIR));
@@ -23,6 +24,7 @@ let browserSetup: BrowserSetupService;
 let outsideClickMonitor: QuickOutsideClickMonitor | undefined;
 let bubbleOpen = false, skin: SkinData | null = null, skinRoot = '', direction: 'left' | 'right' = 'right', motion: 'idle' | 'walking' | 'running' = 'idle';
 let bubbleMode: BubbleMode = 'hidden', panelTab: PanelTab = 'chat', quickHeight = 180, userHidden = false, rigPlayback: RigPlayback | undefined;
+let quickView: 'chat' | 'quota' = 'chat', ignoreBubbleMouse = false;
 let roaming = createHorizontalMotion({ x: 0, y: 0 }, performance.now()), draggingUntil = 0, timer: NodeJS.Timeout | undefined;
 let shuttingDown = false, lastStateKey = '', lastActivity: Activity = 'idle', ignoreMouse = false;
 let lastAnimationKey = '', animationStartedAt = Date.now();
@@ -34,7 +36,11 @@ function currentRigPlayback() {
   if (!rigPlayback || JSON.stringify(rigPlayback.control) !== JSON.stringify(control)) rigPlayback = transitionRigPlayback(skin.manifest.rig, rigPlayback, control, Date.now());
   return rigPlayback;
 }
-function snapshot(): AppSnapshot { const key = animationKey(); if (key !== lastAnimationKey) { lastAnimationKey = key; animationStartedAt = Date.now(); } return { settings: settings.value, assistant: assistant.getSnapshot(), browserSetup: browserSetup?.getSnapshot(), bubbleOpen, bubbleMode, panelTab, skin, direction, motion, version: app.getVersion(), animationStartedAt, rigPlayback: currentRigPlayback() }; }
+function quickShape() {
+  const bounds = bubble.getBounds(), character = pet.getBounds();
+  return createQuickBubbleShape(bounds.width, bounds.height, { x: character.x + character.width / 2 - bounds.x, y: character.y + character.height * .28 - bounds.y });
+}
+function snapshot(): AppSnapshot { const key = animationKey(); if (key !== lastAnimationKey) { lastAnimationKey = key; animationStartedAt = Date.now(); } return { settings: settings.value, assistant: assistant.getSnapshot(), browserSetup: browserSetup?.getSnapshot(), bubbleOpen, bubbleMode, quickView, quickShape: bubbleMode === 'quick' ? quickShape() : undefined, panelTab, skin, direction, motion, version: app.getVersion(), animationStartedAt, rigPlayback: currentRigPlayback() }; }
 function publish() {
   if (!pet || pet.isDestroyed() || !assistant) return;
   const data = snapshot();
@@ -50,9 +56,15 @@ function showBubble(open: boolean, focus = true) {
 }
 function showBubbleMode(mode: BubbleMode, tab: PanelTab = panelTab, focus = true) {
   bubbleMode = mode; panelTab = tab; bubbleOpen = mode !== 'hidden';
+  assistant.setQuotaVisible(mode === 'quick' && quickView === 'quota');
+  if (ignoreBubbleMouse) { ignoreBubbleMouse = false; bubble.setIgnoreMouseEvents(false); }
   if (bubbleOpen) { pauseRoaming(); positionBubble(); focus ? bubble.show() : bubble.showInactive(); } else bubble.hide();
   outsideClickMonitor?.setQuickVisible(mode === 'quick' && bubble.isVisible());
   publish();
+}
+function openQuota() {
+  quickView = 'quota'; userHidden = false; pet.showInactive(); showBubbleMode('quick');
+  void assistant.refreshQuota().catch(() => {});
 }
 function pauseRoaming(position = { x: roaming.x, y: roaming.y }, waitMs = 2000) {
   roaming = resetHorizontalMotion(roaming, position, performance.now(), waitMs);
@@ -63,7 +75,7 @@ function ensureVisible() {
   const area = screen.getDisplayMatching(pet.getBounds()).workArea;
   const bounds = pet.getBounds(), visible = clampRect(bounds, area);
   if (bounds.x !== visible.x || bounds.y !== visible.y || bounds.width !== visible.width || bounds.height !== visible.height) pet.setBounds(visible);
-  pauseRoaming(visible); positionBubble();
+  pauseRoaming(visible); positionBubble(); publish();
 }
 async function setSkin(manifestPath: string | null) {
   if (!manifestPath) { skin = null; skinRoot = ''; lastAnimationKey = ''; masks.clear(); return; }
@@ -140,6 +152,10 @@ function tick() {
   const near = distanceToRect(cursor, bounds) < 42, state = assistant.getSnapshot();
   const hit = draggingUntil > now || spriteHit(cursor.x - bounds.x, cursor.y - bounds.y, bounds.width, bounds.height);
   if (ignoreMouse === hit) { ignoreMouse = !hit; pet.setIgnoreMouseEvents(ignoreMouse, { forward: true }); }
+  if (bubbleOpen && bubbleMode === 'quick') {
+    const rect = bubble.getBounds(), inside = quickBubbleHit(quickShape(), cursor.x - rect.x, cursor.y - rect.y);
+    if (ignoreBubbleMouse === inside) { ignoreBubbleMouse = !inside; bubble.setIgnoreMouseEvents(ignoreBubbleMouse, { forward: true }); }
+  }
   const roamingMotion = roamingAnimationMotion(skin?.manifest);
   const paused = !roamingMotion || !pet.isVisible() || bubbleOpen || near || draggingUntil > now || !settings.value.roaming || state.activity !== 'idle' || state.activeTurnId !== null || state.pending.length > 0;
   roaming = advanceHorizontalMotion(roaming, { now, paused, area: screen.getDisplayMatching(bounds).workArea, petWidth: bounds.width, scale: settings.value.scale });
@@ -164,7 +180,8 @@ async function openExternal(url: string) {
 function petMenu() {
   const openPanel = (tab: PanelTab) => { userHidden = false; pet.showInactive(); showBubbleMode('panel', tab); };
   return Menu.buildFromTemplate([
-    { label: '打开小气泡', click: () => { userHidden = false; pet.showInactive(); showBubbleMode('quick'); } },
+    { label: '打开小气泡', click: () => { userHidden = false; quickView = 'chat'; pet.showInactive(); showBubbleMode('quick'); } },
+    { label: 'Codex 额度', click: openQuota },
     { label: '完整对话', click: () => openPanel('chat') },
     { label: '设置与授权范围', click: () => openPanel('settings') },
     { label: '历史记录', click: () => openPanel('history') }, { type: 'separator' },
@@ -180,11 +197,11 @@ function installHandlers() {
   handle('pet:answer', (payload: AnswerPayload) => { if (!payload || typeof payload.id !== 'string' || !payload.answers || typeof payload.answers !== 'object') throw new Error('回答格式无效。'); return assistant.answer(payload); });
   handle('pet:approve', (id: string, decision: ApprovalDecision) => { if (typeof id !== 'string' || !['allow', 'deny', 'stop', 'session'].includes(decision)) throw new Error('批准请求格式无效。'); return assistant.approve(id, decision); });
   handle('pet:stop', () => assistant.stop());
-  handle('pet:new-thread', async () => { if (assistant.getSnapshot().activeTurnId) throw new Error('请先停止当前任务。'); settings.update({ grant: { folders: [], origins: [] } }); await assistant.newThread(); publish(); });
-  handle('pet:resume-thread', async (id: string) => { if (typeof id !== 'string' || id.length > 200) throw new Error('会话编号无效。'); if (assistant.getSnapshot().activeTurnId) throw new Error('请先停止当前任务。'); settings.update({ grant: { folders: [], origins: [] } }); await assistant.resumeThread(id); publish(); });
+  handle('pet:new-thread', async () => { if (assistant.getSnapshot().activeTurnId) throw new Error('请先停止当前任务。'); settings.update({ grant: { ...settings.value.grant, folders: [] } }); await assistant.newThread(); publish(); });
+  handle('pet:resume-thread', async (id: string) => { if (typeof id !== 'string' || id.length > 200) throw new Error('会话编号无效。'); if (assistant.getSnapshot().activeTurnId) throw new Error('请先停止当前任务。'); settings.update({ grant: { ...settings.value.grant, folders: [] } }); await assistant.resumeThread(id); publish(); });
   handle('pet:settings', async (patch: Partial<Settings>) => {
     if (!patch || typeof patch !== 'object') throw new Error('设置无效。');
-    if (['grant', 'codexPath', 'model', 'chromeExecutablePath', 'chromeUserDataDir', 'chromeProfileDirectory'].some(key => key in patch) && assistant.getSnapshot().activeTurnId) throw new Error('任务执行时不能更改授权范围或助手配置；请先停止任务。');
+    if (['grant', 'codexPath', 'model', 'reasoningByModel', 'chromeExecutablePath', 'chromeUserDataDir', 'chromeProfileDirectory'].some(key => key in patch) && assistant.getSnapshot().activeTurnId) throw new Error('任务执行时不能更改授权范围或助手配置；请先停止任务。');
     const safePatch = { ...patch }; delete safePatch.skinPath;
     if (['chromeExecutablePath', 'chromeUserDataDir', 'chromeProfileDirectory'].some(key => key in patch && patch[key as keyof Settings] !== settings.value[key as keyof Settings])) await tools.disconnectBrowser();
     const oldPath = settings.value.codexPath; settings.update(safePatch);
@@ -202,13 +219,15 @@ function installHandlers() {
     if (result.canceled) return;
     await setSkin(result.filePaths[0]); settings.update({ skinPath: result.filePaths[0] }); publish();
   });
-  handle('pet:bubble', (open: boolean) => { if (typeof open !== 'boolean') return; showBubble(open); });
+  handle('pet:bubble', (open: boolean) => { if (typeof open !== 'boolean') return; if (open) quickView = 'chat'; showBubble(open); });
   handle('pet:bubble-mode', (mode: BubbleMode, tab?: PanelTab) => {
     if (!['hidden', 'quick', 'panel'].includes(mode) || (tab !== undefined && !['chat', 'settings', 'history'].includes(tab))) throw new Error('无效的气泡模式。');
-    showBubbleMode(mode, tab);
+    if (mode === 'quick') quickView = 'chat'; showBubbleMode(mode, tab);
   });
+  handle('pet:quota-open', openQuota);
+  handle('pet:quota-refresh', () => assistant.refreshQuota());
   handle('pet:context-menu', () => { petMenu().popup({ window: pet }); });
-  handle('pet:quick-height', (height: number) => { if (bubbleMode !== 'quick' || !Number.isFinite(height)) return; const next = Math.max(180, Math.min(360, Math.ceil(height))); if (quickHeight !== next) { quickHeight = next; positionBubble(); } });
+  handle('pet:quick-height', (height: number) => { if (bubbleMode !== 'quick' || !Number.isFinite(height)) return; const next = Math.max(180, Math.min(360, Math.ceil(height))); if (quickHeight !== next) { quickHeight = next; positionBubble(); publish(); } });
   handle('pet:drag', (dx: number, dy: number) => {
     if (![dx, dy].every(Number.isFinite) || Math.abs(dx) > 2000 || Math.abs(dy) > 2000) return;
     draggingUntil = performance.now() + 500;
@@ -220,7 +239,7 @@ function installHandlers() {
   handle('pet:browser-profile', async (id: string) => { if (assistant.getSnapshot().activeTurnId) throw new Error('请先停止当前任务，再切换 Chrome 用户。'); if (id !== browserSetup.getSnapshot().selectedProfileId) await tools.disconnectBrowser(); return browserSetup.select(id); });
   handle('pet:browser-install', () => browserSetup.install());
   handle('pet:connect-browser', async () => {
-    if (!settings.value.grant.origins.length) throw new Error('请先在任务授权中添加网站，再连接该网站的 Chrome 标签页。');
+    if (!settings.value.grant.origins.length) throw new Error('请先在长期网站授权中添加网站，再连接该网站的 Chrome 标签页。');
     const config = await browserSetup.getConnectionConfig();
     try { await tools.connectBrowser(config); browserSetup.setConnectionState('connected'); }
     catch (error) { browserSetup.setConnectionState('failed', error instanceof Error ? error.message : 'Chrome 连接未完成，请重新检测后再试。'); throw error; }
@@ -267,7 +286,8 @@ async function main() {
     onMouseDown: ({ x, y }) => {
       if (bubbleMode !== 'quick' || !bubble.isVisible()) return;
       const point = screen.screenToDipPoint({ x, y });
-      const target = pointInside(point, bubble.getBounds()) ? 'bubble' : pointOnPet(point) ? 'pet' : 'outside';
+      const rect = bubble.getBounds();
+      const target = quickBubbleHit(quickShape(), point.x - rect.x, point.y - rect.y) ? 'bubble' : pointOnPet(point) ? 'pet' : 'outside';
       if (shouldDismissQuickClick(bubbleMode, target)) showBubbleMode('hidden');
     },
     onUnavailable: message => console.warn(message),
@@ -285,7 +305,10 @@ async function main() {
   installHandlers();
   assistant.on('change', () => {
     const activity = assistant.getSnapshot().activity;
-    if (!userHidden && pet.isVisible() && bubbleMode !== 'panel' && activity !== lastActivity && ['awaiting-input', 'awaiting-approval', 'error'].includes(activity)) showBubbleMode('quick', panelTab, false);
+    if (!userHidden && pet.isVisible() && bubbleMode !== 'panel' && activity !== lastActivity && ['awaiting-input', 'awaiting-approval', 'error'].includes(activity)) {
+      if (bubbleMode === 'hidden') quickView = 'chat';
+      showBubbleMode('quick', panelTab, false);
+    }
     lastActivity = activity; publish();
   });
   const html = path.join(__dirname, '../renderer/index.html');
@@ -294,12 +317,12 @@ async function main() {
   // Electron's native SVG decoding varies by platform; use a generated bitmap fallback.
   const trayIcon = icon.isEmpty() ? nativeImage.createFromBitmap(Buffer.from(Array.from({ length: 16 * 16 }, () => [105, 130, 55, 255]).flat()), { width: 16, height: 16 }) : icon;
   tray = new Tray(trayIcon); tray.setToolTip('龙娘桌宠');
-  tray.setContextMenu(petMenu()); tray.on('right-click', () => tray.setContextMenu(petMenu())); tray.on('double-click', () => { userHidden = false; pet.showInactive(); showBubbleMode('quick'); });
+  tray.setContextMenu(petMenu()); tray.on('right-click', () => tray.setContextMenu(petMenu())); tray.on('double-click', () => { userHidden = false; quickView = 'chat'; pet.showInactive(); showBubbleMode('quick'); });
   screen.on('display-removed', ensureVisible); screen.on('display-metrics-changed', ensureVisible);
-  pet.on('move', () => { if (bubbleOpen) positionBubble(); });
+  pet.on('move', () => { if (bubbleOpen) { positionBubble(); publish(); } });
   bubble.on('close', event => { if (!shuttingDown) { event.preventDefault(); showBubble(false); } });
   bubble.on('blur', () => { if (bubbleMode === 'quick' && !pointOnPet(screen.getCursorScreenPoint())) showBubbleMode('hidden'); });
-  app.on('second-instance', () => { userHidden = false; pet.showInactive(); showBubbleMode('quick'); });
+  app.on('second-instance', () => { userHidden = false; quickView = 'chat'; pet.showInactive(); showBubbleMode('quick'); });
   if (smoke) {
     pet.showInactive();
     const state = snapshot();

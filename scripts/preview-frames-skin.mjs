@@ -1,10 +1,15 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-const directory=path.resolve('assets/skins/silver-dragon-frames'),output=path.resolve('.local/frames-preview');await fs.mkdir(output,{recursive:true});
+const project=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const argument=name=>{const index=process.argv.indexOf(name);if(index<0)return null;const value=process.argv[index+1];if(!value||value.startsWith('--'))throw new Error(`Missing value for ${name}`);return value;};
+const chrome=argument('--chrome')??process.env.DRAGON_PET_CHROME??process.env.CHROME_PATH;
+const chromeChannel=argument('--chrome-channel')??process.env.DRAGON_PET_CHROME_CHANNEL??'chrome';
+const directory=path.resolve(argument('--skin')??path.join(project,'assets/skins/silver-dragon-frames')),output=path.resolve(argument('--output')??path.join(project,'.local/frames-preview'));await fs.mkdir(output,{recursive:true});
 const manifest=JSON.parse(await fs.readFile(path.join(directory,'skin.json'),'utf8'));
 const atlases=Object.fromEntries(await Promise.all(['idle','thinking'].map(async state=>[state,'data:image/png;base64,'+(await fs.readFile(path.join(directory,`${state}-atlas.png`))).toString('base64')])));
-const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+const browser=await chromium.launch({...chrome?{executablePath:chrome}:{channel:chromeChannel},headless:true});
 try{
   const page=await browser.newPage({viewport:{width:1320,height:1060},deviceScaleFactor:1});await page.setContent('<style>body{margin:0}canvas{display:block}</style><canvas width="1320" height="1060"></canvas>');
   await page.evaluate(async({manifest,atlases})=>{const images={};for(const [state,url]of Object.entries(atlases)){const image=new Image();image.src=url;await image.decode();images[state]=image;}const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');for(let row=0;row<2;row++){const top=row*530;ctx.fillStyle=row?'#252232':'#f2eff7';ctx.fillRect(0,top,1320,530);let left=0;for(const [state,width]of[['idle',200],['thinking',200],['idle',400],['thinking',400]]){const height=width*1.2,scale=Math.min(width/272,(height-24)/272),stageTop=top+35;ctx.fillStyle=row?'#e4d7f0':'#584365';ctx.font='14px sans-serif';ctx.fillText(state+' · '+width+'×'+height,left+12,top+22);ctx.strokeStyle=row?'#655773':'#d0c6dc';ctx.strokeRect(left+10.5,stageTop+.5,width,height);ctx.drawImage(images[state],0,0,272,272,left+10+width/2-manifest.anchor.x*scale,stageTop+height-8-manifest.anchor.y*scale,272*scale,272*scale);left+=width+24;}}},{manifest,atlases});

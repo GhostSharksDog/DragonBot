@@ -292,8 +292,12 @@ select.field-input { min-height: 34px; }
 .chrome-status.failed { color: #985954; border-color: #ecd4cf; background: #fff8f5; }
 .chrome-actions { flex-wrap: wrap; }
 
-.quick-shell { width: calc(100% - 16px); height: calc(100% - 18px); margin: 6px 8px 12px; padding: 11px 12px 10px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; background: #fcfaff; border: 1px solid #d7cde1; border-radius: 18px; box-shadow: 0 4px 10px #4c36551c, inset 0 1px #fff; }
-.quick-header { display: flex; flex: 0 0 28px; gap: 8px; align-items: center; justify-content: space-between; -webkit-app-region: drag; }
+.quick-shell { width: 100%; height: 100%; margin: 0; padding: 0; position: relative; background: transparent; pointer-events: none; }
+.quick-surface { position: absolute; inset: 0; pointer-events: none; overflow: visible; filter: drop-shadow(0 3px 3px #4c36551b); }
+.quick-surface path { fill: #fcfaff; stroke: #d7cde1; stroke-width: 1; stroke-linejoin: round; }
+.quick-inner { position: absolute; display: flex; flex-direction: column; gap: 7px; overflow: hidden; pointer-events: auto; }
+.quick-header { display: flex; flex: 0 0 24px; gap: 6px; align-items: center; justify-content: space-between; -webkit-app-region: no-drag; }
+.quick-header-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .quick-header strong { color: #584465; font-weight: 600; font-size: 14px; letter-spacing: .25px; }
 .quick-header .icon-button { width: 24px; height: 24px; color: #8e7e9b; -webkit-app-region: no-drag; }
 .quick-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
@@ -306,6 +310,7 @@ select.field-input { min-height: 34px; }
 .quick-pulse { width: 5px; height: 5px; border-radius: 50%; background: #a58cb8; display: inline-block; margin-right: 6px; animation: thought 1.4s ease-in-out infinite; }
 .quick-error { margin: 0 0 7px; padding: 6px 8px; background: #fbefeb; color: #976455; border-radius: 7px; font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; white-space: pre-wrap; }
 .quick-footer { flex-shrink: 0; }
+.quick-footer:empty { display: none; }
 .quick-composer { display: flex; align-items: flex-end; gap: 7px; border: 1px solid #ded3e8; border-radius: 11px; padding: 8px; background: #fff; }
 .quick-composer:focus-within { border-color: #b39ac8; box-shadow: 0 0 0 2px #aa8fc00b; }
 .quick-composer textarea { flex: 1; min-width: 0; width: 100%; display: block; resize: none; border: 0; background: transparent; outline: 0; box-shadow: none; font-size: 12px; line-height: 1.55; color: #64516f; min-height: 34px; max-height: 72px; padding: 0; overflow-y: auto; }
@@ -333,3 +338,19 @@ select.field-input { min-height: 34px; }
 .question-navigation .answer-button { flex: 1; }
 .quick-shell .answer-button { min-height: 29px; font-size: 10px; padding: 6px 9px; }
 .quick-shell .custom-answer { font-size: 11px; min-height: 30px; }
+.quota-bucket { padding: 9px 0; border-bottom: 1px solid #e5deeb; }
+.quota-category { display: block; font-size: 10px; color: #8d7999; margin-bottom: 5px; }
+.quota-bucket:first-child { padding-top: 0; }
+.quota-bucket h3 { margin: 0 0 8px; color: #5b466a; font-size: 12px; overflow-wrap: anywhere; }
+.quota-window { margin: 8px 0 12px; }
+.quota-window > div { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: #665470; }
+.quota-window strong { font-weight: 500; }
+.quota-window progress { display: block; width: 100%; height: 6px; margin: 6px 0; border: 0; border-radius: 4px; overflow: hidden; accent-color: #9b82ae; }
+.quota-window progress::-webkit-progress-bar { background: #e8e1ee; border-radius: 4px; }
+.quota-window progress::-webkit-progress-value { background: #9b82ae; border-radius: 4px; }
+.quota-window small, .quota-updated { font-size: 10px; line-height: 1.6; color: #96849e; }
+.quota-updated { margin: 8px 0 0; }
+.quota-pending { font-size: 10px; color: #947348; margin: 0 0 5px; }
+.quota-back { min-height: 25px; font-size: 11px; width: 100%; justify-content: center; }
+.reasoning-setting { margin-top: 10px; }
+.reasoning-unavailable .text-button { margin-left: 6px; }

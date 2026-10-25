@@ -2,7 +2,11 @@
 
 用户外观基准保存在 `references/appearance-master.png`，第二张仅为动作参考。`raw/` 与 `prompts/` 保留本轮全部生成及返修，未覆盖原图；所选思考稿为 `thinking-v5-alpha.png`，所选跑步检查稿为 `running-left-v3-alpha.png`。生成使用内置 ImageGen。
 
-最终可播放检查包位于 `release/animation-redraw-v1/`，其中 `README.md`、`quality-status.json` 明确记录仍未达标的动作与一致性问题。它不是已经通过流畅慢跑验收的最终角色皮肤，也未替换进桌宠。
+当前桌宠默认待机与思考素材位于 `assets/skins/silver-dragon-frames/`。思考的24播放帧按原字节保存在 `selected/thinking/`，包含20张来源图与4帧持姿；待机沿用第一张外观参考的透明提取稿，完整人物裁框和统一0.96比例记录于 `review/idle-source-rects.json`。这两项的生成与测试不依赖临时导出目录。
+
+跑步仍属于检查稿，几何检查通过不代表动作通过。旧可播放检查包及其质量说明属于导出结果，不是默认皮肤构建输入。
+
+默认素材的重建、工具路径参数及核验说明见 [默认逐帧素材的可复现构建](../../docs/frames-skin-reproduction.md)。
 
 `review/order.json` 是1-based完整帧编排；`review/translations.json` 只对整帧作整数平移；`review/source-rects-v3.json` 保全跑步完整人物再放到统一画布，不缩放或拼身体。几何检查通过不等于绘画动作通过。
 

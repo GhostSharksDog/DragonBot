@@ -208,7 +208,7 @@ function fakeRuntime(initiallyLoggedIn = true) {
           if (request.method === 'initialize') response(request.id, {});
           if (request.method === 'config/read') response(request.id, { config: { features: { ...Object.fromEntries(DISABLED_FEATURES.map(name => [name, false])), code_mode_host: true }, mcp_servers: { 'a.server with "quotes"': { command: 'unchanged', enabled: !args.some(arg => arg.startsWith('mcp_servers={')) } } } });
           if (request.method === 'account/read') response(request.id, { account: loggedIn ? { type: 'chatgpt', email: 'test@example.com' } : null });
-          if (request.method === 'model/list') response(request.id, { data: [{ model: 'test-model', displayName: 'Test model', isDefault: true, hidden: false }], nextCursor: null });
+          if (request.method === 'model/list') response(request.id, { data: [{ model: 'test-model', displayName: 'Test model', isDefault: true, hidden: false, defaultReasoningEffort: 'medium', supportedReasoningEfforts: [{ reasoningEffort: 'medium', description: 'Default effort' }, { reasoningEffort: 'high', description: 'More reasoning' }] }], nextCursor: null });
           if (request.method === 'account/login/start') response(request.id, { type: 'chatgpt', loginId: `login-${++loginSequence}`, authUrl: 'https://auth.openai.com/test' });
           if (request.method === 'account/login/cancel') {
             if (cancelFailure) queueMicrotask(() => child.stdout.write(`${JSON.stringify({ id: request.id, error: { code: -1, message: 'cancel temporarily failed' } })}\n`));

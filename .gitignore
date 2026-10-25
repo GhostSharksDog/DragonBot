@@ -3,4 +3,8 @@ dist/
 release/
 *.log
 .local/
+.env
+.env.*
+!.env.example
+!.env.*.example
 

@@ -17,7 +17,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-01.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-01.png",
       "sha256": "03bca1fb6057d062f4086b3891a2646c475f29ec9ed904b86241a3f1350d3c47",
       "alpha": {
         "width": 272,
@@ -28,7 +28,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-02.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-02.png",
       "sha256": "874dff29a59a6cad82bfd423759b5a6bf8f3fc652853feb768dc84d04f71a55e",
       "alpha": {
         "width": 272,
@@ -39,7 +39,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-03.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-03.png",
       "sha256": "1d9135fe7d137348537d673b84d9d7678fd5efc63f51dc485590c4dfade03520",
       "alpha": {
         "width": 272,
@@ -50,7 +50,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-04.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-04.png",
       "sha256": "24a28c7c2f94f44ee07c73090a738a36e1cae9d5f4de49dc93cfe99b101b7db7",
       "alpha": {
         "width": 272,
@@ -61,7 +61,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-05.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-05.png",
       "sha256": "f3338859becc8dd3ac1451dd67fe68cbdb576693f3f1be45fc8d90c24458688d",
       "alpha": {
         "width": 272,
@@ -72,7 +72,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-06.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-06.png",
       "sha256": "cb32c3322eee7336782619fb62d236c164327969538a9fe17206efd2dc1bf155",
       "alpha": {
         "width": 272,
@@ -83,7 +83,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-07.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-07.png",
       "sha256": "1814d76a388d1fad8fc5b7eaa9a357503bbfbd729575634acbc4b83ae61793b3",
       "alpha": {
         "width": 272,
@@ -94,7 +94,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-08.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-08.png",
       "sha256": "a975cea7c4ca220016cb694d78bcf784c7c53bfd5cc106355670c0e026bdf95c",
       "alpha": {
         "width": 272,
@@ -105,7 +105,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-09.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-09.png",
       "sha256": "273f0dd1ffe589fd61d97a54db6f0ea7c4bcea91f546f6e3a7c08a4a25020236",
       "alpha": {
         "width": 272,
@@ -116,7 +116,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-10.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-10.png",
       "sha256": "0fea7d6cba05b771b7a1d5f1ab6a95ac0d1ad6d85676e0709da604daedd03ec7",
       "alpha": {
         "width": 272,
@@ -127,7 +127,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-11.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-11.png",
       "sha256": "45fdffae062d186826e0c6f6ca0f85ea8969f2dd1231db417f34abe28135e06f",
       "alpha": {
         "width": 272,
@@ -138,7 +138,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-12.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-12.png",
       "sha256": "5aea87e8201d0629fc3a549f56e883630c5f7b7d13388495c3f21a6d5c825a5d",
       "alpha": {
         "width": 272,
@@ -149,7 +149,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-13.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-13.png",
       "sha256": "d9f8bbdad7ccc0f32a67671fec5d159ff541f9c5cc552ea71696d5f5780d765e",
       "alpha": {
         "width": 272,
@@ -160,7 +160,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-14.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-14.png",
       "sha256": "798dfa6fd424c5e2d9a7381f1a2ae1efe8eb8a90f02ce2b47da2cd1da5691be7",
       "alpha": {
         "width": 272,
@@ -171,7 +171,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-15.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-15.png",
       "sha256": "798dfa6fd424c5e2d9a7381f1a2ae1efe8eb8a90f02ce2b47da2cd1da5691be7",
       "alpha": {
         "width": 272,
@@ -182,7 +182,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-16.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-16.png",
       "sha256": "fcd6ac3eeec62a288af9b7d4f2a9c3d44dc2c8367f194e4d5d0fbe3fc9f71eef",
       "alpha": {
         "width": 272,
@@ -193,7 +193,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-17.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-17.png",
       "sha256": "4e9b8cb46ab91fbbc8cb6ced18cc4fe5ea0927a131b1d32a6cf71c2b2eee8032",
       "alpha": {
         "width": 272,
@@ -204,7 +204,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-18.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-18.png",
       "sha256": "0b22355bf8b67c801b9d402868dc535e4b24d8a89aae5d2fa64fe5dcfbd1d33d",
       "alpha": {
         "width": 272,
@@ -215,7 +215,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-19.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-19.png",
       "sha256": "0e1d2a54c81eda31ba76137ac15a9d915d876d2f789d97a494c987991e099883",
       "alpha": {
         "width": 272,
@@ -226,7 +226,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-20.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-20.png",
       "sha256": "22422c4665d0b6cdaa0d7cf94725d0ffd618fcb27b8546376884bb074f1d7af5",
       "alpha": {
         "width": 272,
@@ -237,7 +237,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-21.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-21.png",
       "sha256": "55dfc8adf7024b17e89bcc96a5a78577e2de793760a2c0a3900e76f58f81ed39",
       "alpha": {
         "width": 272,
@@ -248,7 +248,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-22.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-22.png",
       "sha256": "03bca1fb6057d062f4086b3891a2646c475f29ec9ed904b86241a3f1350d3c47",
       "alpha": {
         "width": 272,
@@ -259,7 +259,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-23.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-23.png",
       "sha256": "03bca1fb6057d062f4086b3891a2646c475f29ec9ed904b86241a3f1350d3c47",
       "alpha": {
         "width": 272,
@@ -270,7 +270,7 @@
       }
     },
     {
-      "file": "release/animation-redraw-v1/thinking/frame-24.png",
+      "file": "assets/animation-redraw-v1/selected/thinking/frame-24.png",
       "sha256": "03bca1fb6057d062f4086b3891a2646c475f29ec9ed904b86241a3f1350d3c47",
       "alpha": {
         "width": 272,

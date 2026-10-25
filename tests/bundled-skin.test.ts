@@ -66,14 +66,14 @@ test('both atlases preserve every selected PNG pixel and genuine alpha', async (
   }
 });
 
-test('thinking keeps the approved release bytes and idle has one shared whole-character scale', async () => {
+test('thinking keeps the canonical selected bytes and idle has one shared whole-character scale', async () => {
   const { provenance } = await fixtures();
   assert.equal(provenance.animations.thinking.uniqueSourceImages, 20, 'four approved holds are retained rather than claimed as new drawings');
   assert.equal(provenance.animations.idle.uniqueSourceImages, 24);
   for (const state of ['idle', 'thinking']) for (const evidence of provenance.frames.filter((frame: { file: string }) => frame.file.startsWith(state + '/'))) {
     const source = provenance.sources[evidence.source]; assert.equal(sha(await fs.readFile(path.resolve(source.file))), source.sha256);
     if (state === 'thinking') {
-      assert.equal(evidence.exactSourceCopy, true); assert.equal(evidence.sha256, source.sha256); assert.match(source.file, /^release\/animation-redraw-v1\/thinking\/frame-\d+\.png$/);
+      assert.equal(evidence.exactSourceCopy, true); assert.equal(evidence.sha256, source.sha256); assert.match(source.file, /^assets\/animation-redraw-v1\/selected\/thinking\/frame-\d+\.png$/);
     } else {
       assert.match(source.file, /idle-extracted-v1\.png$/); assert.equal(evidence.transform.scale, .96);
       assert.ok(Number.isInteger(evidence.transform.x) && Number.isInteger(evidence.transform.y));
@@ -81,4 +81,28 @@ test('thinking keeps the approved release bytes and idle has one shared whole-ch
     }
   }
   assert.equal(sha(await fs.readFile(provenance.appearanceReference)), provenance.appearanceReferenceSha256);
+});
+
+test('the committed idle recipe reproduces all installed transforms without local output paths', async () => {
+  const { provenance } = await fixtures();
+  const recipe = JSON.parse(await fs.readFile('assets/animation-redraw-v1/review/idle-source-rects.json', 'utf8'));
+  const selection = JSON.parse(await fs.readFile('assets/animation-redraw-v1/selected/thinking/selection.json', 'utf8'));
+  const order = JSON.parse(await fs.readFile(selection.reviewOrder, 'utf8'));
+  assert.equal(selection.frameCount, 24); assert.equal(selection.uniqueSourceFrames, 20); assert.equal(selection.holdFrames, 4);
+  assert.equal(sha(await fs.readFile(selection.sourceImage)), selection.sourceImageSha256);
+  const thinking = provenance.frames.filter((frame: { file: string }) => frame.file.startsWith('thinking/'));
+  for (let index = 0; index < 24; index++) {
+    assert.equal(selection.frames[index].sha256, thinking[index].sha256);
+    assert.equal(selection.frames[index].sourceFrame, order.actions.thinking.sourceIndices[index]);
+  }
+  assert.equal(recipe.sources.idle.frames.length, 24); assert.equal(recipe.sources.idle.globalScale, .96);
+  const frames = provenance.frames.filter((frame: { file: string }) => frame.file.startsWith('idle/'));
+  assert.equal(recipe.sources.idle.sourceSha256, provenance.sources[frames[0].source].sha256);
+  for (let index = 0; index < frames.length; index++) {
+    assert.deepEqual(recipe.sources.idle.frames[index], { sourceRect: frames[index].transform.sourceRect, destination: { x: frames[index].transform.x, y: frames[index].transform.y } });
+  }
+  for (const source of provenance.sources) {
+    assert.ok(source.file.startsWith('assets/'), 'a clean checkout must include every input');
+    assert.equal(path.isAbsolute(source.file), false); assert.ok(!source.file.split('/').includes('..'));
+  }
 });

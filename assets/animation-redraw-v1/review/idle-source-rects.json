@@ -1,0 +1,301 @@
+{
+  "approvedByRoot": true,
+  "indexBase": 1,
+  "reason": "The installed 0.4.1 idle recipe, reconstructed from committed provenance after visual review. Preserve each complete character, the one shared 0.96 scale, and original integer placements.",
+  "sources": {
+    "idle": {
+      "sourceSha256": "d84b6578d12064a24b10cdd776512985f6ba65cb99db4830d2aea4b68e99a4d1",
+      "globalScale": 0.96,
+      "frames": [
+        {
+          "sourceRect": {
+            "x": 18,
+            "y": 7,
+            "width": 207,
+            "height": 262
+          },
+          "destination": {
+            "x": 39,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 260,
+            "y": 8,
+            "width": 206,
+            "height": 261
+          },
+          "destination": {
+            "x": 40,
+            "y": 13
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 501,
+            "y": 8,
+            "width": 207,
+            "height": 261
+          },
+          "destination": {
+            "x": 39,
+            "y": 13
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 742,
+            "y": 7,
+            "width": 207,
+            "height": 262
+          },
+          "destination": {
+            "x": 39,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 984,
+            "y": 8,
+            "width": 206,
+            "height": 261
+          },
+          "destination": {
+            "x": 40,
+            "y": 13
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 1225,
+            "y": 7,
+            "width": 207,
+            "height": 262
+          },
+          "destination": {
+            "x": 39,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 18,
+            "y": 279,
+            "width": 207,
+            "height": 261
+          },
+          "destination": {
+            "x": 38,
+            "y": 13
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 259,
+            "y": 281,
+            "width": 207,
+            "height": 259
+          },
+          "destination": {
+            "x": 39,
+            "y": 15
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 501,
+            "y": 281,
+            "width": 206,
+            "height": 259
+          },
+          "destination": {
+            "x": 40,
+            "y": 15
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 742,
+            "y": 281,
+            "width": 207,
+            "height": 259
+          },
+          "destination": {
+            "x": 40,
+            "y": 15
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 983,
+            "y": 279,
+            "width": 207,
+            "height": 261
+          },
+          "destination": {
+            "x": 38,
+            "y": 13
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 1225,
+            "y": 279,
+            "width": 206,
+            "height": 261
+          },
+          "destination": {
+            "x": 38,
+            "y": 13
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 18,
+            "y": 550,
+            "width": 207,
+            "height": 262
+          },
+          "destination": {
+            "x": 40,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 259,
+            "y": 550,
+            "width": 207,
+            "height": 262
+          },
+          "destination": {
+            "x": 39,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 501,
+            "y": 550,
+            "width": 206,
+            "height": 262
+          },
+          "destination": {
+            "x": 39,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 742,
+            "y": 550,
+            "width": 207,
+            "height": 262
+          },
+          "destination": {
+            "x": 40,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 983,
+            "y": 550,
+            "width": 207,
+            "height": 262
+          },
+          "destination": {
+            "x": 39,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 1225,
+            "y": 550,
+            "width": 207,
+            "height": 262
+          },
+          "destination": {
+            "x": 39,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 18,
+            "y": 822,
+            "width": 207,
+            "height": 262
+          },
+          "destination": {
+            "x": 39,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 259,
+            "y": 822,
+            "width": 207,
+            "height": 262
+          },
+          "destination": {
+            "x": 39,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 501,
+            "y": 822,
+            "width": 207,
+            "height": 262
+          },
+          "destination": {
+            "x": 39,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 742,
+            "y": 822,
+            "width": 207,
+            "height": 262
+          },
+          "destination": {
+            "x": 39,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 984,
+            "y": 822,
+            "width": 206,
+            "height": 262
+          },
+          "destination": {
+            "x": 40,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 1225,
+            "y": 822,
+            "width": 207,
+            "height": 262
+          },
+          "destination": {
+            "x": 39,
+            "y": 12
+          }
+        }
+      ]
+    }
+  }
+}

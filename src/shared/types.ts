@@ -1,6 +1,6 @@
 export type Activity = 'idle' | 'walking' | 'running' | 'thinking' | 'speaking' | 'awaiting-input' | 'awaiting-approval' | 'success' | 'error';
 export interface TaskGrant { folders: string[]; origins: string[]; browserInput?: boolean }
-export interface Settings { scale: number; roaming: boolean; alwaysOnTop: boolean; model: string; codexPath: string; chromeExecutablePath: string; chromeUserDataDir: string; chromeProfileDirectory: string; grant: TaskGrant; skinPath: string | null }
+export interface Settings { scale: number; roaming: boolean; alwaysOnTop: boolean; model: string; reasoningByModel?: Record<string, string>; codexPath: string; chromeExecutablePath: string; chromeUserDataDir: string; chromeProfileDirectory: string; grant: TaskGrant; skinPath: string | null }
 export type BrowserSetupStatus = 'idle' | 'detecting' | 'missing-browser' | 'missing-extension' | 'extension-disabled' | 'profile-mismatch' | 'ready' | 'awaiting-confirmation' | 'connected' | 'failed';
 export interface BrowserProfile { id: string; name: string; extension: 'enabled' | 'disabled' | 'missing' | 'unknown'; lastUsed: boolean }
 export interface BrowserSetupSnapshot { status: BrowserSetupStatus; message: string; profiles: BrowserProfile[]; selectedProfileId: string | null; chromeFound: boolean; canConnect: boolean }
@@ -10,9 +10,12 @@ export interface Question { id: string; header: string; question: string; option
 export interface ApprovalRequest { id: string; kind: 'approval'; threadId: string; turnId: string; title: string; description: string; details: string[]; supportsSession: boolean }
 export interface QuestionRequest { id: string; kind: 'question'; threadId: string; turnId: string; title: string; questions: Question[] }
 export type PendingInteraction = ApprovalRequest | QuestionRequest;
-export interface ModelInfo { id: string; label: string; isDefault?: boolean }
+export interface ModelInfo { id: string; label: string; isDefault?: boolean; supportedReasoningEfforts?: { reasoningEffort: string; description: string }[]; defaultReasoningEffort?: string }
+export interface QuotaWindow { usedPercent: number; windowDurationMins: number | null; resetsAt: number | null }
+export interface QuotaBucket { id: string; name: string | null; primary: QuotaWindow | null; secondary: QuotaWindow | null; credits: { hasCredits: boolean; unlimited: boolean; balance: string | null } | null; planType: string | null }
+export interface QuotaSnapshot { status: 'idle' | 'loading' | 'ready' | 'error'; buckets: QuotaBucket[]; updatedAt: number | null; stale: boolean; error: string | null }
 export interface ThreadSummary { id: string; title: string; updatedAt: number }
-export interface AssistantSnapshot { connected: boolean; connection?: 'disconnected' | 'connecting' | 'ready' | 'reconnecting' | 'error'; login?: 'unknown' | 'checking' | 'signed-out' | 'opening-browser' | 'waiting-browser' | 'signed-in' | 'error'; diagnostic?: { phase: string; message: string; exitCode?: number | null; signal?: string | null } | null; account: string; models: ModelInfo[]; threadId: string | null; activeTurnId: string | null; activity: Activity; messages: ChatMessage[]; pending: PendingInteraction[]; threads: ThreadSummary[]; browser: 'disconnected' | 'connecting' | 'connected'; error: string | null }
+export interface AssistantSnapshot { connected: boolean; connection?: 'disconnected' | 'connecting' | 'ready' | 'reconnecting' | 'error'; login?: 'unknown' | 'checking' | 'signed-out' | 'opening-browser' | 'waiting-browser' | 'signed-in' | 'error'; diagnostic?: { phase: string; message: string; exitCode?: number | null; signal?: string | null } | null; account: string; models: ModelInfo[]; quota?: QuotaSnapshot; threadId: string | null; activeTurnId: string | null; activity: Activity; messages: ChatMessage[]; pending: PendingInteraction[]; threads: ThreadSummary[]; browser: 'disconnected' | 'connecting' | 'connected'; error: string | null }
 export interface SpriteRegion { x: number; y: number; width: number; height: number; outline?: [number, number][] }
 export function skinRegionClipPath(region: SpriteRegion): string | undefined {
   return region.outline?.length ? `polygon(evenodd, ${region.outline.map(([x, y]) => `${x / region.width * 100}% ${y / region.height * 100}%`).join(', ')})` : undefined;
@@ -52,8 +55,9 @@ export function skinFrameLayout(manifest: Pick<SkinManifest, 'width' | 'height'>
 export interface SkinManifest { name: string; width: number; height: number; anchor: { x: number; y: number }; animations: Record<string, SkinAnimation>; rig?: import('./rig').RigDefinition }
 export interface SkinData { manifest: SkinManifest; baseUrl: string }
 export type BubbleMode = 'hidden' | 'quick' | 'panel';
+export type QuickView = 'chat' | 'quota';
 export type PanelTab = 'chat' | 'settings' | 'history';
-export interface AppSnapshot { settings: Settings; assistant: AssistantSnapshot; browserSetup?: BrowserSetupSnapshot; bubbleOpen: boolean; bubbleMode?: BubbleMode; panelTab?: PanelTab; skin: SkinData | null; direction: 'left' | 'right'; motion: 'idle' | 'walking' | 'running'; version: string; animationStartedAt?: number; rigPlayback?: import('./rig').RigPlayback }
+export interface AppSnapshot { settings: Settings; assistant: AssistantSnapshot; browserSetup?: BrowserSetupSnapshot; bubbleOpen: boolean; bubbleMode?: BubbleMode; quickView?: QuickView; quickShape?: import('./bubble-shape').QuickBubbleShape; panelTab?: PanelTab; skin: SkinData | null; direction: 'left' | 'right'; motion: 'idle' | 'walking' | 'running'; version: string; animationStartedAt?: number; rigPlayback?: import('./rig').RigPlayback }
 export interface AnswerPayload { id: string; answers: Record<string, string[]> }
 export type ApprovalDecision = 'allow' | 'deny' | 'stop' | 'session';
 export interface PetBridge {
@@ -72,6 +76,8 @@ export interface PetBridge {
   setBubbleMode(mode: BubbleMode, tab?: PanelTab): Promise<void>;
   showContextMenu(): Promise<void>;
   resizeQuickBubble(height: number): Promise<void>;
+  openQuota(): Promise<void>;
+  refreshQuota(): Promise<void>;
   drag(dx: number, dy: number): Promise<void>;
   connectBrowser(): Promise<void>;
   detectBrowser(): Promise<BrowserSetupSnapshot>;
