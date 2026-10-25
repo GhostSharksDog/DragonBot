@@ -1,0 +1,311 @@
+{
+  "atlas-front-v2.png": {
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "transparentFraction": 0.40298604274932653,
+    "regions": [
+      {
+        "x": 62,
+        "y": 1,
+        "width": 239,
+        "height": 315
+      },
+      {
+        "x": 360,
+        "y": 1,
+        "width": 247,
+        "height": 315
+      },
+      {
+        "x": 671,
+        "y": 1,
+        "width": 247,
+        "height": 315
+      },
+      {
+        "x": 983,
+        "y": 1,
+        "width": 247,
+        "height": 315
+      },
+      {
+        "x": 54,
+        "y": 316,
+        "width": 245,
+        "height": 314
+      },
+      {
+        "x": 357,
+        "y": 316,
+        "width": 249,
+        "height": 314
+      },
+      {
+        "x": 670,
+        "y": 316,
+        "width": 249,
+        "height": 314
+      },
+      {
+        "x": 983,
+        "y": 316,
+        "width": 248,
+        "height": 314
+      },
+      {
+        "x": 52,
+        "y": 632,
+        "width": 247,
+        "height": 313
+      },
+      {
+        "x": 359,
+        "y": 632,
+        "width": 248,
+        "height": 311
+      },
+      {
+        "x": 669,
+        "y": 632,
+        "width": 251,
+        "height": 311
+      },
+      {
+        "x": 988,
+        "y": 632,
+        "width": 248,
+        "height": 311
+      },
+      {
+        "x": 42,
+        "y": 945,
+        "width": 257,
+        "height": 304
+      },
+      {
+        "x": 357,
+        "y": 945,
+        "width": 255,
+        "height": 304
+      },
+      {
+        "x": 667,
+        "y": 945,
+        "width": 256,
+        "height": 304
+      },
+      {
+        "x": 983,
+        "y": 945,
+        "width": 255,
+        "height": 304
+      }
+    ]
+  },
+  "atlas-expressions-v2.png": {
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "transparentFraction": 0.4193260990667186,
+    "regions": [
+      {
+        "x": 59,
+        "y": 3,
+        "width": 242,
+        "height": 312
+      },
+      {
+        "x": 366,
+        "y": 3,
+        "width": 244,
+        "height": 312
+      },
+      {
+        "x": 672,
+        "y": 3,
+        "width": 241,
+        "height": 312
+      },
+      {
+        "x": 978,
+        "y": 3,
+        "width": 235,
+        "height": 312
+      },
+      {
+        "x": 53,
+        "y": 316,
+        "width": 250,
+        "height": 308
+      },
+      {
+        "x": 358,
+        "y": 316,
+        "width": 253,
+        "height": 308
+      },
+      {
+        "x": 654,
+        "y": 316,
+        "width": 269,
+        "height": 309
+      },
+      {
+        "x": 979,
+        "y": 316,
+        "width": 242,
+        "height": 309
+      },
+      {
+        "x": 60,
+        "y": 629,
+        "width": 242,
+        "height": 306
+      },
+      {
+        "x": 368,
+        "y": 629,
+        "width": 242,
+        "height": 305
+      },
+      {
+        "x": 673,
+        "y": 629,
+        "width": 243,
+        "height": 306
+      },
+      {
+        "x": 978,
+        "y": 629,
+        "width": 246,
+        "height": 306
+      },
+      {
+        "x": 53,
+        "y": 939,
+        "width": 241,
+        "height": 302
+      },
+      {
+        "x": 357,
+        "y": 939,
+        "width": 254,
+        "height": 302
+      },
+      {
+        "x": 665,
+        "y": 939,
+        "width": 254,
+        "height": 302
+      },
+      {
+        "x": 976,
+        "y": 939,
+        "width": 249,
+        "height": 303
+      }
+    ]
+  },
+  "atlas-motion-v2.png": {
+    "sourceWidth": 1254,
+    "sourceHeight": 1254,
+    "transparentFraction": 0.3532771685629908,
+    "regions": [
+      {
+        "x": 30,
+        "y": 6,
+        "width": 250,
+        "height": 333
+      },
+      {
+        "x": 339,
+        "y": 8,
+        "width": 266,
+        "height": 333
+      },
+      {
+        "x": 646,
+        "y": 6,
+        "width": 269,
+        "height": 334
+      },
+      {
+        "x": 969,
+        "y": 9,
+        "width": 253,
+        "height": 329
+      },
+      {
+        "x": 25,
+        "y": 341,
+        "width": 284,
+        "height": 289
+      },
+      {
+        "x": 344,
+        "y": 343,
+        "width": 288,
+        "height": 288
+      },
+      {
+        "x": 645,
+        "y": 341,
+        "width": 298,
+        "height": 288
+      },
+      {
+        "x": 965,
+        "y": 342,
+        "width": 274,
+        "height": 290
+      },
+      {
+        "x": 59,
+        "y": 633,
+        "width": 270,
+        "height": 323
+      },
+      {
+        "x": 373,
+        "y": 633,
+        "width": 275,
+        "height": 325
+      },
+      {
+        "x": 688,
+        "y": 633,
+        "width": 275,
+        "height": 324
+      },
+      {
+        "x": 1005,
+        "y": 633,
+        "width": 246,
+        "height": 326
+      },
+      {
+        "x": 37,
+        "y": 962,
+        "width": 281,
+        "height": 284
+      },
+      {
+        "x": 340,
+        "y": 961,
+        "width": 285,
+        "height": 283
+      },
+      {
+        "x": 656,
+        "y": 962,
+        "width": 294,
+        "height": 287
+      },
+      {
+        "x": 976,
+        "y": 962,
+        "width": 275,
+        "height": 285
+      }
+    ]
+  }
+}

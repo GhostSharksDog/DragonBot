@@ -1,0 +1,300 @@
+{
+  "approvedByRoot": true,
+  "indexBase": 1,
+  "reason": "Reviewed 24 complete-person dark contact tiles and source boxes. Rectangles preserve complete horns, shoes and tails without neighboring bodies; integer whole-character registration stabilizes head/torso while retaining natural small bob. This approves geometry only, not final gait aesthetics.",
+  "sources": {
+    "running-left": {
+      "sourceSha256": "00714f9488b52d7705a00ab57ca4866009183f7cf10a5af2dec3f1d7f93d3786",
+      "frames": [
+        {
+          "sourceRect": {
+            "x": 49,
+            "y": 14,
+            "width": 203,
+            "height": 243
+          },
+          "destination": {
+            "x": 47,
+            "y": 14
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 283,
+            "y": 15,
+            "width": 200,
+            "height": 243
+          },
+          "destination": {
+            "x": 46,
+            "y": 15
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 536,
+            "y": 16,
+            "width": 202,
+            "height": 243
+          },
+          "destination": {
+            "x": 46,
+            "y": 16
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 792,
+            "y": 13,
+            "width": 200,
+            "height": 245
+          },
+          "destination": {
+            "x": 45,
+            "y": 13
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 1051,
+            "y": 14,
+            "width": 198,
+            "height": 243
+          },
+          "destination": {
+            "x": 47,
+            "y": 14
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 1301,
+            "y": 12,
+            "width": 205,
+            "height": 247
+          },
+          "destination": {
+            "x": 45,
+            "y": 12
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 42,
+            "y": 263,
+            "width": 202,
+            "height": 243
+          },
+          "destination": {
+            "x": 47,
+            "y": 14
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 280,
+            "y": 264,
+            "width": 208,
+            "height": 243
+          },
+          "destination": {
+            "x": 45,
+            "y": 15
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 535,
+            "y": 264,
+            "width": 207,
+            "height": 242
+          },
+          "destination": {
+            "x": 46,
+            "y": 15
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 792,
+            "y": 264,
+            "width": 207,
+            "height": 246
+          },
+          "destination": {
+            "x": 46,
+            "y": 15
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 1048,
+            "y": 264,
+            "width": 204,
+            "height": 245
+          },
+          "destination": {
+            "x": 47,
+            "y": 15
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 1301,
+            "y": 264,
+            "width": 207,
+            "height": 244
+          },
+          "destination": {
+            "x": 45,
+            "y": 15
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 44,
+            "y": 511,
+            "width": 197,
+            "height": 241
+          },
+          "destination": {
+            "x": 47,
+            "y": 14
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 282,
+            "y": 515,
+            "width": 202,
+            "height": 239
+          },
+          "destination": {
+            "x": 45,
+            "y": 16
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 538,
+            "y": 515,
+            "width": 201,
+            "height": 239
+          },
+          "destination": {
+            "x": 46,
+            "y": 16
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 791,
+            "y": 514,
+            "width": 204,
+            "height": 242
+          },
+          "destination": {
+            "x": 46,
+            "y": 16
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 1049,
+            "y": 516,
+            "width": 202,
+            "height": 241
+          },
+          "destination": {
+            "x": 46,
+            "y": 17
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 1305,
+            "y": 513,
+            "width": 202,
+            "height": 244
+          },
+          "destination": {
+            "x": 45,
+            "y": 15
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 44,
+            "y": 762,
+            "width": 202,
+            "height": 244
+          },
+          "destination": {
+            "x": 44,
+            "y": 14
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 282,
+            "y": 763,
+            "width": 202,
+            "height": 242
+          },
+          "destination": {
+            "x": 46,
+            "y": 15
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 539,
+            "y": 763,
+            "width": 200,
+            "height": 244
+          },
+          "destination": {
+            "x": 46,
+            "y": 15
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 793,
+            "y": 765,
+            "width": 200,
+            "height": 241
+          },
+          "destination": {
+            "x": 46,
+            "y": 16
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 1047,
+            "y": 764,
+            "width": 204,
+            "height": 243
+          },
+          "destination": {
+            "x": 46,
+            "y": 15
+          }
+        },
+        {
+          "sourceRect": {
+            "x": 1307,
+            "y": 768,
+            "width": 197,
+            "height": 239
+          },
+          "destination": {
+            "x": 47,
+            "y": 17
+          }
+        }
+      ]
+    }
+  }
+}

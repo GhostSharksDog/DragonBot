@@ -1,0 +1,1606 @@
+{
+  "version": 1,
+  "kind": "complete-character frames",
+  "appearanceReference": "assets/animation-redraw-v1/references/appearance-master.png",
+  "appearanceReferenceSha256": "43551198368c5ae9717525d32d9174c7ba4eda37b782a4ff19099c3e2ed64a41",
+  "policy": "Preserve approved thinking bytes; idle uses only complete-character rectangles, one global uniform scale if needed, and whole-person translation. No body parts, white threshold cleanup, or new drawing.",
+  "sources": [
+    {
+      "file": "assets/animation-redraw-v1/raw/idle-extracted-v1.png",
+      "sha256": "d84b6578d12064a24b10cdd776512985f6ba65cb99db4830d2aea4b68e99a4d1",
+      "alpha": {
+        "width": 1448,
+        "height": 1086,
+        "zeroAlphaPixels": 646449,
+        "minAlpha": 0,
+        "maxAlpha": 255
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-01.png",
+      "sha256": "03bca1fb6057d062f4086b3891a2646c475f29ec9ed904b86241a3f1350d3c47",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 36001,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-02.png",
+      "sha256": "874dff29a59a6cad82bfd423759b5a6bf8f3fc652853feb768dc84d04f71a55e",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 35860,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-03.png",
+      "sha256": "1d9135fe7d137348537d673b84d9d7678fd5efc63f51dc485590c4dfade03520",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 36224,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-04.png",
+      "sha256": "24a28c7c2f94f44ee07c73090a738a36e1cae9d5f4de49dc93cfe99b101b7db7",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 35601,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-05.png",
+      "sha256": "f3338859becc8dd3ac1451dd67fe68cbdb576693f3f1be45fc8d90c24458688d",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 36418,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-06.png",
+      "sha256": "cb32c3322eee7336782619fb62d236c164327969538a9fe17206efd2dc1bf155",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 36438,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-07.png",
+      "sha256": "1814d76a388d1fad8fc5b7eaa9a357503bbfbd729575634acbc4b83ae61793b3",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 34885,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-08.png",
+      "sha256": "a975cea7c4ca220016cb694d78bcf784c7c53bfd5cc106355670c0e026bdf95c",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 34418,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-09.png",
+      "sha256": "273f0dd1ffe589fd61d97a54db6f0ea7c4bcea91f546f6e3a7c08a4a25020236",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 35079,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-10.png",
+      "sha256": "0fea7d6cba05b771b7a1d5f1ab6a95ac0d1ad6d85676e0709da604daedd03ec7",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 34684,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-11.png",
+      "sha256": "45fdffae062d186826e0c6f6ca0f85ea8969f2dd1231db417f34abe28135e06f",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 35359,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-12.png",
+      "sha256": "5aea87e8201d0629fc3a549f56e883630c5f7b7d13388495c3f21a6d5c825a5d",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 35456,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-13.png",
+      "sha256": "d9f8bbdad7ccc0f32a67671fec5d159ff541f9c5cc552ea71696d5f5780d765e",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 34554,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-14.png",
+      "sha256": "798dfa6fd424c5e2d9a7381f1a2ae1efe8eb8a90f02ce2b47da2cd1da5691be7",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 35009,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-15.png",
+      "sha256": "798dfa6fd424c5e2d9a7381f1a2ae1efe8eb8a90f02ce2b47da2cd1da5691be7",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 35009,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-16.png",
+      "sha256": "fcd6ac3eeec62a288af9b7d4f2a9c3d44dc2c8367f194e4d5d0fbe3fc9f71eef",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 34130,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-17.png",
+      "sha256": "4e9b8cb46ab91fbbc8cb6ced18cc4fe5ea0927a131b1d32a6cf71c2b2eee8032",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 35200,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-18.png",
+      "sha256": "0b22355bf8b67c801b9d402868dc535e4b24d8a89aae5d2fa64fe5dcfbd1d33d",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 34707,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-19.png",
+      "sha256": "0e1d2a54c81eda31ba76137ac15a9d915d876d2f789d97a494c987991e099883",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 34823,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-20.png",
+      "sha256": "22422c4665d0b6cdaa0d7cf94725d0ffd618fcb27b8546376884bb074f1d7af5",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 34655,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-21.png",
+      "sha256": "55dfc8adf7024b17e89bcc96a5a78577e2de793760a2c0a3900e76f58f81ed39",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 35243,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-22.png",
+      "sha256": "03bca1fb6057d062f4086b3891a2646c475f29ec9ed904b86241a3f1350d3c47",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 36001,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-23.png",
+      "sha256": "03bca1fb6057d062f4086b3891a2646c475f29ec9ed904b86241a3f1350d3c47",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 36001,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    },
+    {
+      "file": "release/animation-redraw-v1/thinking/frame-24.png",
+      "sha256": "03bca1fb6057d062f4086b3891a2646c475f29ec9ed904b86241a3f1350d3c47",
+      "alpha": {
+        "width": 272,
+        "height": 272,
+        "zeroAlphaPixels": 36001,
+        "minAlpha": 0,
+        "maxAlpha": 254
+      }
+    }
+  ],
+  "animations": {
+    "idle": {
+      "frames": 24,
+      "uniqueSourceImages": 24,
+      "durationMs": 2000,
+      "atlas": {
+        "file": "idle-atlas.png",
+        "sha256": "3c05c878cedeb6ae6a8cda5d052fa7c45b87f023e2f34416eec2baa69fc3ec1c",
+        "width": 1632,
+        "height": 1088
+      }
+    },
+    "thinking": {
+      "frames": 24,
+      "uniqueSourceImages": 20,
+      "durationMs": 2000,
+      "atlas": {
+        "file": "thinking-atlas.png",
+        "sha256": "1a8907267d127a5ab222a70b4f5cf49118d22e5cd9a7934602ab8b70a1c49160",
+        "width": 1632,
+        "height": 1088
+      }
+    }
+  },
+  "frames": [
+    {
+      "file": "idle/frame-01.png",
+      "sha256": "41dc3e6672461ba64305b811ef2b45b8dfba56b0f354e4067fdf6a88d3afc491",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38700,
+        "partial": 35274,
+        "threshold": 128,
+        "bbox": {
+          "x": 42,
+          "y": 15,
+          "width": 193,
+          "height": 245
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 39,
+        "y": 12,
+        "sourceRect": {
+          "x": 18,
+          "y": 7,
+          "width": 207,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "idle/frame-02.png",
+      "sha256": "0e44df423632911cb33dbc035765f3059a497a0c20c0cef7ef28dcba55cd7217",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38728,
+        "partial": 35255,
+        "threshold": 128,
+        "bbox": {
+          "x": 43,
+          "y": 16,
+          "width": 192,
+          "height": 244
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 40,
+        "y": 13,
+        "sourceRect": {
+          "x": 260,
+          "y": 8,
+          "width": 206,
+          "height": 261
+        }
+      }
+    },
+    {
+      "file": "idle/frame-03.png",
+      "sha256": "af0163b2798a74e50aa7a10d87e69aaab3a72c5033eb6d29e8fc5a7870047f03",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 39109,
+        "partial": 34874,
+        "threshold": 128,
+        "bbox": {
+          "x": 42,
+          "y": 16,
+          "width": 193,
+          "height": 244
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 39,
+        "y": 13,
+        "sourceRect": {
+          "x": 501,
+          "y": 8,
+          "width": 207,
+          "height": 261
+        }
+      }
+    },
+    {
+      "file": "idle/frame-04.png",
+      "sha256": "3c61b8fc98c780613f87f227f8d0c305596220bf33fa0e65aec5401e18687336",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38597,
+        "partial": 35373,
+        "threshold": 128,
+        "bbox": {
+          "x": 42,
+          "y": 15,
+          "width": 192,
+          "height": 245
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 39,
+        "y": 12,
+        "sourceRect": {
+          "x": 742,
+          "y": 7,
+          "width": 207,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "idle/frame-05.png",
+      "sha256": "ef8aafec5c2b70efa0251556edbc84eb9c42beea58f7fd3e290941be80fba909",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38825,
+        "partial": 35159,
+        "threshold": 128,
+        "bbox": {
+          "x": 43,
+          "y": 15,
+          "width": 192,
+          "height": 246
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 40,
+        "y": 13,
+        "sourceRect": {
+          "x": 984,
+          "y": 8,
+          "width": 206,
+          "height": 261
+        }
+      }
+    },
+    {
+      "file": "idle/frame-06.png",
+      "sha256": "ca530668bf3732e27759c27c8f318af38ed4bfc137af4922ceb3ad773c0e3873",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38848,
+        "partial": 35124,
+        "threshold": 128,
+        "bbox": {
+          "x": 42,
+          "y": 15,
+          "width": 193,
+          "height": 245
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 39,
+        "y": 12,
+        "sourceRect": {
+          "x": 1225,
+          "y": 7,
+          "width": 207,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "idle/frame-07.png",
+      "sha256": "71ab58e77234241a5263fa028413a86aab41a7138a0773c6d909a757f071f411",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38825,
+        "partial": 35155,
+        "threshold": 128,
+        "bbox": {
+          "x": 41,
+          "y": 16,
+          "width": 193,
+          "height": 245
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 38,
+        "y": 13,
+        "sourceRect": {
+          "x": 18,
+          "y": 279,
+          "width": 207,
+          "height": 261
+        }
+      }
+    },
+    {
+      "file": "idle/frame-08.png",
+      "sha256": "ab8b796faaba5959bb29c677d4bec7bd8e58aa1b49af2c1ae5d5f7a31ae7d46b",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 39165,
+        "partial": 34819,
+        "threshold": 128,
+        "bbox": {
+          "x": 42,
+          "y": 18,
+          "width": 193,
+          "height": 243
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 39,
+        "y": 15,
+        "sourceRect": {
+          "x": 259,
+          "y": 281,
+          "width": 207,
+          "height": 259
+        }
+      }
+    },
+    {
+      "file": "idle/frame-09.png",
+      "sha256": "97db8b5329f658e8edca08dd822063f7c6ded48045409e80de7234fffd9c1ece",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 39246,
+        "partial": 34738,
+        "threshold": 128,
+        "bbox": {
+          "x": 43,
+          "y": 18,
+          "width": 192,
+          "height": 243
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 40,
+        "y": 15,
+        "sourceRect": {
+          "x": 501,
+          "y": 281,
+          "width": 206,
+          "height": 259
+        }
+      }
+    },
+    {
+      "file": "idle/frame-10.png",
+      "sha256": "a35a8d694c648d22cd2d7b17988d2a51c807d1049e4ecd301e71742205e987fe",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38904,
+        "partial": 35077,
+        "threshold": 128,
+        "bbox": {
+          "x": 43,
+          "y": 18,
+          "width": 193,
+          "height": 243
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 40,
+        "y": 15,
+        "sourceRect": {
+          "x": 742,
+          "y": 281,
+          "width": 207,
+          "height": 259
+        }
+      }
+    },
+    {
+      "file": "idle/frame-11.png",
+      "sha256": "2602b201ab55856155433e62a0e6650532bb3b6e226061f0b14474bea40a5543",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 39115,
+        "partial": 34869,
+        "threshold": 128,
+        "bbox": {
+          "x": 41,
+          "y": 16,
+          "width": 193,
+          "height": 245
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 38,
+        "y": 13,
+        "sourceRect": {
+          "x": 983,
+          "y": 279,
+          "width": 207,
+          "height": 261
+        }
+      }
+    },
+    {
+      "file": "idle/frame-12.png",
+      "sha256": "37d29f751434979ebfcac98afc69590f7c88da0f37a4dd0d1336aead69845396",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 39012,
+        "partial": 34972,
+        "threshold": 128,
+        "bbox": {
+          "x": 41,
+          "y": 16,
+          "width": 192,
+          "height": 245
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 38,
+        "y": 13,
+        "sourceRect": {
+          "x": 1225,
+          "y": 279,
+          "width": 206,
+          "height": 261
+        }
+      }
+    },
+    {
+      "file": "idle/frame-13.png",
+      "sha256": "6a570c5aad3a5d4be42fbd03d1a7c900a4890a7bc3200c094c6b772c1211822e",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38554,
+        "partial": 35427,
+        "threshold": 128,
+        "bbox": {
+          "x": 43,
+          "y": 15,
+          "width": 193,
+          "height": 246
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 40,
+        "y": 12,
+        "sourceRect": {
+          "x": 18,
+          "y": 550,
+          "width": 207,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "idle/frame-14.png",
+      "sha256": "b43a34230901ff8497cd12510760a28ff5c305eb41db98d56dd65e505014167b",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38519,
+        "partial": 35463,
+        "threshold": 128,
+        "bbox": {
+          "x": 42,
+          "y": 15,
+          "width": 193,
+          "height": 246
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 39,
+        "y": 12,
+        "sourceRect": {
+          "x": 259,
+          "y": 550,
+          "width": 207,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "idle/frame-15.png",
+      "sha256": "5184d764ee8e5b628843c6412b7e6e2fa657ddb6cee45721f5e6fb5c0f6f00e7",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38777,
+        "partial": 35207,
+        "threshold": 128,
+        "bbox": {
+          "x": 42,
+          "y": 15,
+          "width": 192,
+          "height": 246
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 39,
+        "y": 12,
+        "sourceRect": {
+          "x": 501,
+          "y": 550,
+          "width": 206,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "idle/frame-16.png",
+      "sha256": "2326e3e3d89c4151b565950cfb7175dbd6efde3c03723bc23f354c0947517062",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38487,
+        "partial": 35494,
+        "threshold": 128,
+        "bbox": {
+          "x": 43,
+          "y": 15,
+          "width": 193,
+          "height": 246
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 40,
+        "y": 12,
+        "sourceRect": {
+          "x": 742,
+          "y": 550,
+          "width": 207,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "idle/frame-17.png",
+      "sha256": "3f53d3bd344b8e2f289718ef5662dbd9e89fcc1ec3193a8b1897be02f4c58247",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38503,
+        "partial": 35479,
+        "threshold": 128,
+        "bbox": {
+          "x": 42,
+          "y": 15,
+          "width": 193,
+          "height": 246
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 39,
+        "y": 12,
+        "sourceRect": {
+          "x": 983,
+          "y": 550,
+          "width": 207,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "idle/frame-18.png",
+      "sha256": "225f0c1804ca41067a0ced7e26dead31ff7761c61cfd746634158c16b6df8b4d",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38416,
+        "partial": 35568,
+        "threshold": 128,
+        "bbox": {
+          "x": 42,
+          "y": 15,
+          "width": 193,
+          "height": 246
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 39,
+        "y": 12,
+        "sourceRect": {
+          "x": 1225,
+          "y": 550,
+          "width": 207,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "idle/frame-19.png",
+      "sha256": "f0761566a989e5651b96adbd8c598919ad642b55dd1944f213f64598609c3425",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38508,
+        "partial": 35475,
+        "threshold": 128,
+        "bbox": {
+          "x": 42,
+          "y": 15,
+          "width": 192,
+          "height": 245
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 39,
+        "y": 12,
+        "sourceRect": {
+          "x": 18,
+          "y": 822,
+          "width": 207,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "idle/frame-20.png",
+      "sha256": "2a9bd7e3e3688ac1a69790ba4f1c537bdaee0caf2a8ae6f2ce1a7c6df738f0d4",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38861,
+        "partial": 35123,
+        "threshold": 128,
+        "bbox": {
+          "x": 42,
+          "y": 15,
+          "width": 193,
+          "height": 245
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 39,
+        "y": 12,
+        "sourceRect": {
+          "x": 259,
+          "y": 822,
+          "width": 207,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "idle/frame-21.png",
+      "sha256": "c51beec7a92b71a47c52aab9fca421baeacf6635deababedfaaa74697532bec3",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 39015,
+        "partial": 34969,
+        "threshold": 128,
+        "bbox": {
+          "x": 42,
+          "y": 15,
+          "width": 192,
+          "height": 245
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 39,
+        "y": 12,
+        "sourceRect": {
+          "x": 501,
+          "y": 822,
+          "width": 207,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "idle/frame-22.png",
+      "sha256": "1ea7288b524bf053e52e8558bd17a88dbc4590c5f2d1bd48e973b46e02088b79",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38870,
+        "partial": 35113,
+        "threshold": 128,
+        "bbox": {
+          "x": 42,
+          "y": 15,
+          "width": 192,
+          "height": 245
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 39,
+        "y": 12,
+        "sourceRect": {
+          "x": 742,
+          "y": 822,
+          "width": 207,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "idle/frame-23.png",
+      "sha256": "ae51a3d13dc1d7271d8da6a6aa5efd869dae82e531fb345f546c8cb725527684",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 39032,
+        "partial": 34944,
+        "threshold": 128,
+        "bbox": {
+          "x": 43,
+          "y": 15,
+          "width": 192,
+          "height": 245
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 40,
+        "y": 12,
+        "sourceRect": {
+          "x": 984,
+          "y": 822,
+          "width": 206,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "idle/frame-24.png",
+      "sha256": "79959145f02eaf36225e605b89ab1216854dd4f4bf0dc7918364adcf4879b6e5",
+      "source": 0,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": false,
+      "alpha": {
+        "zero": 38639,
+        "partial": 35345,
+        "threshold": 128,
+        "bbox": {
+          "x": 42,
+          "y": 15,
+          "width": 193,
+          "height": 245
+        }
+      },
+      "transform": {
+        "scale": 0.96,
+        "x": 39,
+        "y": 12,
+        "sourceRect": {
+          "x": 1225,
+          "y": 822,
+          "width": 207,
+          "height": 262
+        }
+      }
+    },
+    {
+      "file": "thinking/frame-01.png",
+      "sha256": "03bca1fb6057d062f4086b3891a2646c475f29ec9ed904b86241a3f1350d3c47",
+      "source": 1,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 36001,
+        "partial": 37983,
+        "threshold": 128,
+        "bbox": {
+          "x": 39,
+          "y": 14,
+          "width": 208,
+          "height": 248
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-02.png",
+      "sha256": "874dff29a59a6cad82bfd423759b5a6bf8f3fc652853feb768dc84d04f71a55e",
+      "source": 2,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 35860,
+        "partial": 38124,
+        "threshold": 128,
+        "bbox": {
+          "x": 39,
+          "y": 14,
+          "width": 207,
+          "height": 248
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-03.png",
+      "sha256": "1d9135fe7d137348537d673b84d9d7678fd5efc63f51dc485590c4dfade03520",
+      "source": 3,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 36224,
+        "partial": 37760,
+        "threshold": 128,
+        "bbox": {
+          "x": 38,
+          "y": 15,
+          "width": 211,
+          "height": 246
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-04.png",
+      "sha256": "24a28c7c2f94f44ee07c73090a738a36e1cae9d5f4de49dc93cfe99b101b7db7",
+      "source": 4,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 35601,
+        "partial": 38383,
+        "threshold": 128,
+        "bbox": {
+          "x": 37,
+          "y": 14,
+          "width": 210,
+          "height": 247
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-05.png",
+      "sha256": "f3338859becc8dd3ac1451dd67fe68cbdb576693f3f1be45fc8d90c24458688d",
+      "source": 5,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 36418,
+        "partial": 37566,
+        "threshold": 128,
+        "bbox": {
+          "x": 37,
+          "y": 15,
+          "width": 211,
+          "height": 246
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-06.png",
+      "sha256": "cb32c3322eee7336782619fb62d236c164327969538a9fe17206efd2dc1bf155",
+      "source": 6,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 36438,
+        "partial": 37546,
+        "threshold": 128,
+        "bbox": {
+          "x": 38,
+          "y": 14,
+          "width": 209,
+          "height": 248
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-07.png",
+      "sha256": "1814d76a388d1fad8fc5b7eaa9a357503bbfbd729575634acbc4b83ae61793b3",
+      "source": 7,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 34885,
+        "partial": 39099,
+        "threshold": 128,
+        "bbox": {
+          "x": 40,
+          "y": 12,
+          "width": 208,
+          "height": 249
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-08.png",
+      "sha256": "a975cea7c4ca220016cb694d78bcf784c7c53bfd5cc106355670c0e026bdf95c",
+      "source": 8,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 34418,
+        "partial": 39566,
+        "threshold": 128,
+        "bbox": {
+          "x": 39,
+          "y": 12,
+          "width": 207,
+          "height": 250
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-09.png",
+      "sha256": "273f0dd1ffe589fd61d97a54db6f0ea7c4bcea91f546f6e3a7c08a4a25020236",
+      "source": 9,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 35079,
+        "partial": 38905,
+        "threshold": 128,
+        "bbox": {
+          "x": 40,
+          "y": 12,
+          "width": 207,
+          "height": 250
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-10.png",
+      "sha256": "0fea7d6cba05b771b7a1d5f1ab6a95ac0d1ad6d85676e0709da604daedd03ec7",
+      "source": 10,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 34684,
+        "partial": 39300,
+        "threshold": 128,
+        "bbox": {
+          "x": 39,
+          "y": 12,
+          "width": 208,
+          "height": 250
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-11.png",
+      "sha256": "45fdffae062d186826e0c6f6ca0f85ea8969f2dd1231db417f34abe28135e06f",
+      "source": 11,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 35359,
+        "partial": 38625,
+        "threshold": 128,
+        "bbox": {
+          "x": 41,
+          "y": 12,
+          "width": 207,
+          "height": 249
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-12.png",
+      "sha256": "5aea87e8201d0629fc3a549f56e883630c5f7b7d13388495c3f21a6d5c825a5d",
+      "source": 12,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 35456,
+        "partial": 38528,
+        "threshold": 128,
+        "bbox": {
+          "x": 38,
+          "y": 12,
+          "width": 208,
+          "height": 249
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-13.png",
+      "sha256": "d9f8bbdad7ccc0f32a67671fec5d159ff541f9c5cc552ea71696d5f5780d765e",
+      "source": 13,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 34554,
+        "partial": 39430,
+        "threshold": 128,
+        "bbox": {
+          "x": 38,
+          "y": 13,
+          "width": 207,
+          "height": 248
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-14.png",
+      "sha256": "798dfa6fd424c5e2d9a7381f1a2ae1efe8eb8a90f02ce2b47da2cd1da5691be7",
+      "source": 14,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 35009,
+        "partial": 38975,
+        "threshold": 128,
+        "bbox": {
+          "x": 39,
+          "y": 14,
+          "width": 208,
+          "height": 247
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-15.png",
+      "sha256": "798dfa6fd424c5e2d9a7381f1a2ae1efe8eb8a90f02ce2b47da2cd1da5691be7",
+      "source": 15,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 35009,
+        "partial": 38975,
+        "threshold": 128,
+        "bbox": {
+          "x": 39,
+          "y": 14,
+          "width": 208,
+          "height": 247
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-16.png",
+      "sha256": "fcd6ac3eeec62a288af9b7d4f2a9c3d44dc2c8367f194e4d5d0fbe3fc9f71eef",
+      "source": 16,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 34130,
+        "partial": 39854,
+        "threshold": 128,
+        "bbox": {
+          "x": 37,
+          "y": 12,
+          "width": 212,
+          "height": 249
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-17.png",
+      "sha256": "4e9b8cb46ab91fbbc8cb6ced18cc4fe5ea0927a131b1d32a6cf71c2b2eee8032",
+      "source": 17,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 35200,
+        "partial": 38784,
+        "threshold": 128,
+        "bbox": {
+          "x": 38,
+          "y": 12,
+          "width": 210,
+          "height": 249
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-18.png",
+      "sha256": "0b22355bf8b67c801b9d402868dc535e4b24d8a89aae5d2fa64fe5dcfbd1d33d",
+      "source": 18,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 34707,
+        "partial": 39277,
+        "threshold": 128,
+        "bbox": {
+          "x": 37,
+          "y": 13,
+          "width": 212,
+          "height": 249
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-19.png",
+      "sha256": "0e1d2a54c81eda31ba76137ac15a9d915d876d2f789d97a494c987991e099883",
+      "source": 19,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 34823,
+        "partial": 39161,
+        "threshold": 128,
+        "bbox": {
+          "x": 37,
+          "y": 13,
+          "width": 211,
+          "height": 249
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-20.png",
+      "sha256": "22422c4665d0b6cdaa0d7cf94725d0ffd618fcb27b8546376884bb074f1d7af5",
+      "source": 20,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 34655,
+        "partial": 39329,
+        "threshold": 128,
+        "bbox": {
+          "x": 37,
+          "y": 11,
+          "width": 209,
+          "height": 250
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-21.png",
+      "sha256": "55dfc8adf7024b17e89bcc96a5a78577e2de793760a2c0a3900e76f58f81ed39",
+      "source": 21,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 35243,
+        "partial": 38741,
+        "threshold": 128,
+        "bbox": {
+          "x": 39,
+          "y": 13,
+          "width": 209,
+          "height": 249
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-22.png",
+      "sha256": "03bca1fb6057d062f4086b3891a2646c475f29ec9ed904b86241a3f1350d3c47",
+      "source": 22,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 36001,
+        "partial": 37983,
+        "threshold": 128,
+        "bbox": {
+          "x": 39,
+          "y": 14,
+          "width": 208,
+          "height": 248
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-23.png",
+      "sha256": "03bca1fb6057d062f4086b3891a2646c475f29ec9ed904b86241a3f1350d3c47",
+      "source": 23,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 36001,
+        "partial": 37983,
+        "threshold": 128,
+        "bbox": {
+          "x": 39,
+          "y": 14,
+          "width": 208,
+          "height": 248
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "file": "thinking/frame-24.png",
+      "sha256": "03bca1fb6057d062f4086b3891a2646c475f29ec9ed904b86241a3f1350d3c47",
+      "source": 24,
+      "width": 272,
+      "height": 272,
+      "exactSourceCopy": true,
+      "alpha": {
+        "zero": 36001,
+        "partial": 37983,
+        "threshold": 128,
+        "bbox": {
+          "x": 39,
+          "y": 14,
+          "width": 208,
+          "height": 248
+        }
+      },
+      "transform": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    }
+  ]
+}

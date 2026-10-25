@@ -1,0 +1,15 @@
+import { spawn } from 'node:child_process';
+import { mkdir, readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { default as electron } from 'electron';
+const directory = path.resolve('.local/smoke-' + Date.now());
+await mkdir(directory, { recursive: true });
+const childEnv = { ...process.env, DRAGON_PET_DATA_DIR: directory };
+delete childEnv.ELECTRON_RUN_AS_NODE;
+const child = spawn(electron, ['.', '--smoke-test'], { stdio: 'inherit', env: childEnv, windowsHide: true });
+const timeout = setTimeout(() => { child.kill(); process.exitCode = 1; }, 30000);
+const code = await new Promise(resolve => child.on('exit', resolve));
+clearTimeout(timeout);
+if (code !== 0) throw new Error('Electron smoke test failed: ' + code);
+console.log(await readFile(path.join(directory, 'smoke-result.json'), 'utf8'));
+console.log('Native startup result: ' + directory);

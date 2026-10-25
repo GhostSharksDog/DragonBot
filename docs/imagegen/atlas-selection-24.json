@@ -1,0 +1,447 @@
+[
+  {
+    "state": "idle",
+    "sequence": "original",
+    "sources": [
+      {
+        "file": "idle-24-v4.png",
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      }
+    ]
+  },
+  {
+    "state": "speaking",
+    "sequence": "original",
+    "sources": [
+      {
+        "file": "speaking-24-v3.png",
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      }
+    ]
+  },
+  {
+    "state": "thinking",
+    "sequence": "original",
+    "sources": [
+      {
+        "file": "thinking-24-v3.png",
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      }
+    ]
+  },
+  {
+    "state": "awaiting-input",
+    "sequence": "original",
+    "sources": [
+      {
+        "file": "awaiting-input-24-v3.png",
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ]
+      },
+      {
+        "file": "extras-24-v3.png",
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      {
+        "file": "supplement-24-v3.png",
+        "indices": [
+          3
+        ]
+      }
+    ]
+  },
+  {
+    "state": "awaiting-approval",
+    "sequence": "original",
+    "sources": [
+      {
+        "file": "awaiting-approval-24-v3.png",
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ]
+      },
+      {
+        "file": "extras-24-v3.png",
+        "indices": [
+          6,
+          7,
+          8,
+          9
+        ]
+      }
+    ]
+  },
+  {
+    "state": "success",
+    "sequence": "original",
+    "sources": [
+      {
+        "file": "success-24-v3.png",
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      }
+    ]
+  },
+  {
+    "state": "error",
+    "sequence": "original",
+    "sources": [
+      {
+        "file": "error-24-v4.png",
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ]
+      },
+      {
+        "file": "extras-24-v3.png",
+        "indices": [
+          11,
+          12,
+          13,
+          14
+        ]
+      }
+    ]
+  },
+  {
+    "state": "idle-back",
+    "sequence": "original",
+    "sources": [
+      {
+        "file": "idle-back-24-v3.png",
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      }
+    ]
+  },
+  {
+    "state": "walking-right",
+    "sequence": "smooth-loop",
+    "sources": [
+      {
+        "file": "walking-right-24-v3.png",
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      }
+    ]
+  },
+  {
+    "state": "running-right",
+    "sequence": "smooth-loop",
+    "sources": [
+      {
+        "file": "running-right-24-v4.png",
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          6,
+          7,
+          8,
+          9,
+          10,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22
+        ]
+      },
+      {
+        "file": "supplement-24-v3.png",
+        "indices": [
+          0,
+          1,
+          2
+        ]
+      }
+    ]
+  },
+  {
+    "state": "walking-left",
+    "sequence": "smooth-loop",
+    "sources": [
+      {
+        "file": "walking-left-24-v4.png",
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      }
+    ]
+  },
+  {
+    "state": "running-left",
+    "sequence": "smooth-loop",
+    "sources": [
+      {
+        "file": "running-left-24-v4.png",
+        "indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      }
+    ]
+  }
+]

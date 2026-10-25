@@ -1,0 +1,6 @@
+{
+  "tool": "built-in image_gen",
+  "intent": "background-extraction",
+  "input": "../raw/thinking-v4-green.png",
+  "prompt": "BACKGROUND EXTRACTION / EXACT PRESERVATION. Edit the supplied24-frame sprite sheet. Replace ONLY the flat bright GREEN background with genuine alpha-zero transparency, including the gaps between hair, wings, sleeves, legs and tail. Preserve all the existing24 character paintings, their exact cell positions, SCALE, proportions, colors, fine costume details and6x4 layout. Do not repaint/restyle/rearrange them. No white fringe, no coloured pink/blue/green fringe, no dust or detached fragments. Antialiased character contour only, absolutely clean transparent area. Keep all horns, strands, wings, tail, fingers, skirts and feet intact. No new shadow, text, border or grid. One local eyelid correction: in row2 column3 (frame9) BOTH eyes are half-closed symmetrically; row2 col4 (frame10) BOTH are fully closed; row2 col5 (frame11) BOTH are half-open symmetrically. No winking, unchanged face outside eyelids. Other than background alpha and those eyelids, leave the painted image identical."
+}

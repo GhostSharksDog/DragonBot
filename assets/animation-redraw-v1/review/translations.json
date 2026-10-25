@@ -1,0 +1,128 @@
+{
+  "approvedByRoot": true,
+  "reason": "Reviewed the actual light/dark composites: apply only tiny integer whole-character translations to stabilize lower torso and shoe baseline while retaining head tilt; original PNG and all body shapes unchanged.",
+  "source": "E:\\Projects\\dragon-pet\\assets\\animation-redraw-v1\\raw\\thinking-v5-alpha.png",
+  "sourceSha256": "1e487e2cade6d4d8aa3e0c1a73370856f899010e15d58d6ace67fb55528e481e",
+  "sourceGrid": {
+    "columns": 6,
+    "rows": 4,
+    "width": 256,
+    "height": 256
+  },
+  "recommendedCommonCanvas": {
+    "width": 272,
+    "height": 272,
+    "globalPadding": 8
+  },
+  "target": {
+    "bodyCenterX": 129.74103624999998,
+    "shoeBottom": 253
+  },
+  "frames": {
+    "thinking": [
+      {
+        "x": -3,
+        "y": 0
+      },
+      {
+        "x": -3,
+        "y": 0
+      },
+      {
+        "x": 0,
+        "y": 0
+      },
+      {
+        "x": 1,
+        "y": 0
+      },
+      {
+        "x": 2,
+        "y": 0
+      },
+      {
+        "x": 2,
+        "y": 0
+      },
+      {
+        "x": -2,
+        "y": 0
+      },
+      {
+        "x": -3,
+        "y": 0
+      },
+      {
+        "x": -2,
+        "y": 0
+      },
+      {
+        "x": -1,
+        "y": 0
+      },
+      {
+        "x": 1,
+        "y": 0
+      },
+      {
+        "x": 1,
+        "y": 0
+      },
+      {
+        "x": -4,
+        "y": 0
+      },
+      {
+        "x": -2,
+        "y": 0
+      },
+      {
+        "x": -1,
+        "y": 0
+      },
+      {
+        "x": 0,
+        "y": 0
+      },
+      {
+        "x": 1,
+        "y": 0
+      },
+      {
+        "x": 1,
+        "y": 0
+      },
+      {
+        "x": -2,
+        "y": 1
+      },
+      {
+        "x": -1,
+        "y": 1
+      },
+      {
+        "x": 0,
+        "y": 1
+      },
+      {
+        "x": 1,
+        "y": 1
+      },
+      {
+        "x": 2,
+        "y": 1
+      },
+      {
+        "x": 2,
+        "y": 1
+      }
+    ]
+  },
+  "reviewNotes": [
+    "Index14 (human frame15, row3col3) has the unwanted wink; do not auto-approve or reuse it without root selection.",
+    "Head and face centroids are intentionally excluded from registration because frames12–15 tilt the head.",
+    "The final row has a one-pixel shoe-baseline shift; y+1 corrects this.",
+    "Small within-frame redraw variations remain after translation.",
+    "All original alpha, including very-low-alpha margins, must stay intact; global padding prevents inadvertent clipping."
+  ]
+}

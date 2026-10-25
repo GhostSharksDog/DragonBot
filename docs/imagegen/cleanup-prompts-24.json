@@ -1,0 +1,18 @@
+{
+  "mode": "built-in image_gen",
+  "reference": "assets/reference/dragon-girl-three-view.png",
+  "prompts": [
+    {
+      "key": "running-left",
+      "prompt": "Precise background-extraction cleanup of attached EDIT TARGET ONLY. Preserve ALL figures with EXACTLY the same layout, positions, scales, distinct poses, anatomy, expressions, costumes, colors and detailed anime drawing. Do NOT re-layout, rescale, omit or add any row, column or figure. Do NOT crop the image. Count is essential.\nErase every detached white/gray/purple/magenta spatter island, dot, dust, speckle and residue in empty background. Remove external white or colored fringe halos, leave CLEAN antialiased illustrated contours. Preserve all WHITE hair, horns, ahoge, gown, wings, scales and shoes INSIDE each character silhouette. Restore tiny missing tips at edges to make each figure complete.\nTruly TRANSPARENT RGBA gaps with alpha zero. No checkerboard, opaque background, shadow, glow, labels, dividers or new objects. Do not change identity or gait phases.\nKeep exactly 24 sprites in SIX columns by FOUR rows. Keep all running LEFT poses. Leave each full-body figure complete inside its existing position."
+    },
+    {
+      "key": "awaiting-input",
+      "prompt": "Precise background-extraction cleanup of attached EDIT TARGET ONLY. Preserve ALL figures with EXACTLY the same layout, positions, scales, distinct poses, anatomy, expressions, costumes, colors and detailed anime drawing. Do NOT re-layout, rescale, omit or add any row, column or figure. Do NOT crop the image. Count is essential.\nErase every detached white/gray/purple/magenta spatter island, dot, dust, speckle and residue in empty background. Remove external white or colored fringe halos, leave CLEAN antialiased illustrated contours. Preserve all WHITE hair, horns, ahoge, gown, wings, scales and shoes INSIDE each character silhouette. Restore tiny missing tips at edges to make each figure complete.\nTruly TRANSPARENT RGBA gaps with alpha zero. No checkerboard, opaque background, shadow, glow, labels, dividers or new objects. Do not change identity or gait phases.\nKeep exactly 18 sprites in SIX columns by THREE rows. Keep all waiting-for-answer poses. Leave each full-body figure complete inside its existing position."
+    },
+    {
+      "key": "error",
+      "prompt": "Precise background-extraction cleanup of attached EDIT TARGET ONLY. Preserve ALL figures with EXACTLY the same layout, positions, scales, distinct poses, anatomy, expressions, costumes, colors and detailed anime drawing. Do NOT re-layout, rescale, omit or add any row, column or figure. Do NOT crop the image. Count is essential.\nErase every detached white/gray/purple/magenta spatter island, dot, dust, speckle and residue in empty background. Remove external white or colored fringe halos, leave CLEAN antialiased illustrated contours. Preserve all WHITE hair, horns, ahoge, gown, wings, scales and shoes INSIDE each character silhouette. Restore tiny missing tips at edges to make each figure complete.\nTruly TRANSPARENT RGBA gaps with alpha zero. No checkerboard, opaque background, shadow, glow, labels, dividers or new objects. Do not change identity or gait phases.\nKeep exactly 20 sprites in FOUR columns by FIVE rows. Keep all puzzled/needs-help poses; separate silhouettes so neighboring figures never touch. Leave each full-body figure complete inside its existing position."
+    }
+  ]
+}

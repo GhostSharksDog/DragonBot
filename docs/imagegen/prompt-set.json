@@ -1,0 +1,150 @@
+{
+  "version": "0.3.0",
+  "mode": "built-in image_gen",
+  "reference": "assets/reference/dragon-girl-three-view.png",
+  "provenance": {
+    "sourcePngPixelsRewrittenByCode": false,
+    "sourcePngHandling": "Original outputs from built-in imagegen were copied as PNG assets. Canvas is used only to read pixels for geometric inspection, hashing and feature analysis. Runtime rectangles, concave outlines, source mappings and sequence ordering do not rewrite the PNG files.",
+    "commonAndActionTemplateStatus": "reconstructed reproduction template; not represented as a verbatim transcript of the original 24-frame calls",
+    "exactPrompts": "Saved cleanup and supplement prompt files are referenced below without changing their text."
+  },
+  "commonTemplate": "Use case: identity-preserve. Asset type: transparent production 2D desktop-pet animation sprite sheet. Input image 1 is the sole character identity master, a front/side/back model sheet; input image 2, when supplied, is an existing sprite STYLE reference. Preserve the same adult chibi silver-white dragon girl: long wavy silver-white hair and ahoge, pale segmented dragon horns, violet eyes, pointed ears, asymmetric braided silver knot ornament and tassel, small pale lavender bat-like wings, thick white-scaled curled tail, ornate layered asymmetric white off-shoulder gown, delicate silver jewelry and white shoes. Keep the original soft detailed anime painting, colors, costume, proportions and identity consistent. Neutral nonsexual fantasy presentation. Create exactly 24 DISTINCT full-body animation poses, read left-to-right then top-to-bottom, ideally SIX columns by FOUR rows. Fixed camera, same character scale, consistent foot baseline, smooth ordered action phases and a compatible loop seam. Each complete figure, including every horn, ahoge, wing, shoe, dress hem and entire tail, must fit inside its own cell with generous empty transparent margins; no touching neighbors or canvas edges. TRUE transparent RGBA background, clean antialiased edges. No opaque background, baked checkerboard, white/pink debris, floating speckles, external halos, ground, shadow, motion lines, text, labels, grid lines, icons or unrelated props. Do not duplicate one pose or translate copies to satisfy the count. Apply the action direction below while preserving the identity master.",
+  "actionTemplates": {
+    "idle": "All 24 frames face FRONT. A calm seamless standing loop with subtle breathing, small hair/wing/tail response and a natural blink, then return smoothly to the initial state. Keep feet planted and upper-body scale stable.",
+    "speaking": "All 24 frames face FRONT. Friendly speech with varied small mouth shapes, subtle eyelids and tiny head/sleeve gestures. Keep the same face, planted feet and stable body; smoothly close back to the initial speech pose.",
+    "thinking": "All 24 frames face FRONT. Thoughtful hand-near-chin gesture, gentle gaze changes, slight head tilt and blink, then return to the starting thinking pose. No thought icons or bubbles.",
+    "awaiting-input": "All 24 frames face FRONT. Softly curious expression with a politely open palm asking for an answer, a small head tilt and attentive blink. Distinct but restrained gesture phases, stable feet. No question mark or drawn speech bubble.",
+    "awaiting-approval": "All 24 frames face FRONT. Attentive hopeful expression, hands gently together at waist and a modest offered open hand, natural blink and return. Polite patient approval request without icons, text or props.",
+    "success": "All 24 frames face FRONT. A one-shot happy celebration progressing from a smile to a small lifted-hands/wing gesture and delighted closed-eye smile, then a relaxed happy finish. Maintain planted feet and preserve the original progression; this action is not a loop.",
+    "error": "All 24 frames face FRONT. Mild puzzled needs-help expression, a tiny worried head tilt, small hand-near-chin gesture and blink, returning gently to an attentive pose. Calm and cute, no distress symbols or tears.",
+    "idle-back": "All 24 frames face BACK, matching the original rear view. Subtle breathing and small hair, wings and curled tail motion. Keep the full long hair, gown, horns and both shoes visible and the foot baseline stable.",
+    "walking-right": "All 24 frames face RIGHT in consistent side/three-quarter profile. One complete smooth walking cycle with alternating lead-foot contact, weight transfer, passing legs and opposite contact. Actual shoe/leg/sleeve gait changes with restrained hair, dress, wing and tail lag. Stable torso and ground baseline.",
+    "running-right": "All 24 frames face RIGHT in consistent side/three-quarter profile. A complete playful running cycle with a small forward lean, alternating contact, compression, passing and opposite contact, counter-swinging sleeves and secondary hair/tail motion. Keep complete shoes and costume, stable character scale, no out-of-cell jumps.",
+    "walking-left": "All 24 frames face LEFT in consistent side/three-quarter profile. A complete walking cycle with alternating lead-foot contacts and passing phases, modest sleeve and dress counter-swing, and small hair/wing/tail lag. Preserve asymmetrical ornament and costume identity using the reference side, rather than inventing a mirrored costume.",
+    "running-left": "All 24 frames face LEFT in consistent side/three-quarter profile. Match the playful complete run-cycle phases, modest forward lean and alternating actual shoe/leg motion. Keep the same ornate gown, asymmetrical identity details, full curled tail, consistent height and foot baseline."
+  },
+  "composition": "For reproduction, concatenate commonTemplate, a newline, and actionTemplates[state]. These reconstructed templates describe the intended generation target; actual layouts and selected figures are measured separately.",
+  "exactPromptReferences": [
+    {
+      "file": "docs/imagegen/cleanup-prompts-24.json",
+      "keys": [
+        "running-left",
+        "awaiting-input",
+        "error"
+      ],
+      "status": "verbatim saved 0.3 cleanup prompts"
+    },
+    {
+      "file": "docs/imagegen/supplement-prompt-24.json",
+      "status": "verbatim saved four-pose supplement prompt; top-left/top-right/bottom-left running-right and bottom-right awaiting-input"
+    },
+    {
+      "file": "docs/imagegen/prompts.json",
+      "status": "verbatim saved legacy 0.2 generation and cleanup prompts; not the 0.3 24-frame prompt transcript"
+    }
+  ],
+  "inspection": "docs/imagegen/atlas-geometry-24.json",
+  "selection": "docs/imagegen/atlas-selection-24.json",
+  "sequenceReview": "docs/imagegen/atlas-sequence-review-24.json",
+  "runtime": "24 fps per state, 24 distinct inspected source frames per state, 12 states. Four walking/running loops use reviewed smooth-loop order; success preserves its original non-looping order. Concave evenodd outlines and per-source sourceSizes/frameSources affect only display clipping and alpha hit-testing.",
+  "sourceAssets": [
+    {
+      "file": "awaiting-approval-24-v3.png",
+      "sha256": "a12801aade1316fd5e7d6498724a151b1ae3894808080502473a42dc7f708518",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2171118
+    },
+    {
+      "file": "awaiting-input-24-v3.png",
+      "sha256": "25769f7cd2624c7b7329096a832b1fdf8e58d4317ce5b3f78225f3c323811471",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2398722
+    },
+    {
+      "file": "error-24-v4.png",
+      "sha256": "4d7bd591c21d851e11c2d9f1acf84a4ba88521eeccb0423facbac103eea197e9",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2228307
+    },
+    {
+      "file": "extras-24-v3.png",
+      "sha256": "c3dcc60ba0cb60c15a3bf3a3c1b1e21b22f39421ec9f494deb99f4ae41d904d8",
+      "width": 1448,
+      "height": 1086,
+      "bytes": 2840566
+    },
+    {
+      "file": "idle-24-v4.png",
+      "sha256": "0f6d98fae8c063cc9a352205038bb3a3cd8b1006f6aa10be01389044a7f945b6",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2781445
+    },
+    {
+      "file": "idle-back-24-v3.png",
+      "sha256": "7963656d73b51cdb5db8dae08d40306e085c0e847a6c12461f0953700c313469",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2110001
+    },
+    {
+      "file": "running-left-24-v4.png",
+      "sha256": "d3f9e75845ec300036c29e07a39b38b90e7d51ae7715169222314682251f5b53",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2438563
+    },
+    {
+      "file": "running-right-24-v4.png",
+      "sha256": "e6b33c6825b77d5f58144ff7821da3636a1d408d3f70be898107bac8b0038cf5",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2614250
+    },
+    {
+      "file": "speaking-24-v3.png",
+      "sha256": "ca61cc6d7310ffaa870124d76aaa7390643d6901c4750296d3b2f3e9a48bd5a2",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2897419
+    },
+    {
+      "file": "success-24-v3.png",
+      "sha256": "65998400c3f43c32e4fddf82f2e89e88bd76dd5434a867228b0de46f39150eab",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2148792
+    },
+    {
+      "file": "supplement-24-v3.png",
+      "sha256": "c1e4b62609cdd9b584344742fb7f1ad0cad4447607cef20027da2f7180c45e6f",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1804495
+    },
+    {
+      "file": "thinking-24-v3.png",
+      "sha256": "13e4d3a40c933e0a411f87ef3405fddbf207146b24574c81c8d84fb70dad3289",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2946385
+    },
+    {
+      "file": "walking-left-24-v4.png",
+      "sha256": "3eb80973ff1a3d6aca086619cc4dd3c4d32b1ffa5564a212677c059349c51b44",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2615238
+    },
+    {
+      "file": "walking-right-24-v3.png",
+      "sha256": "75b15289057765b062c927b8923ea1aa8fb27d74055807ff3b48c94bf7b1cca6",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 2748673
+    }
+  ]
+}

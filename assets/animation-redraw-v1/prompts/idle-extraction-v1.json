@@ -1,0 +1,8 @@
+{
+  "tool": "built-in image_gen",
+  "intent": "background-extraction",
+  "references": [
+    "../references/appearance-master.png"
+  ],
+  "prompt": "BACKGROUND EXTRACTION ONLY. The supplied image is the user's approved 24-frame idle animation and the character MUST remain exactly this original girl. Remove ONLY the white paper background, blue/purple grid lines and the little frame numbers. Preserve ALL24 complete character paintings at their original positions and relative scale, in the same6 columns x4 rows. Do not repaint, redesign, restyle, alter facial features, enlarge eyes/head, simplify clothing, move limbs, change poses or redraw details. Keep the exact original subtle idle hand changes and blink progression.\nMake all background and gaps between hair, horns, wings, clothing, hands, legs and tail genuinely transparent alpha0. Preserve ALL white foreground: her white hair, segmented horns, flower ornament, elaborate off-shoulder dress, thin silver jewelry, open-front layered ruffles, waist flower and hanging ribbons, leg strap, little white shoes and curled white scaled tail. White character material is NOT background. Intact soft antialiased contours, all tips and feet fully present. Absolutely no white/colored dots, halos, grid remnants, numbers, shadows, checkerboard or colored backdrop.\nKeep24 whole figures, no body-parts sheet, same appearance/proportions as the input; this is precise transparent cutout processing, not new illustrations."
+}

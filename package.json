@@ -1,0 +1,61 @@
+{
+  "name": "dragon-pet",
+  "version": "0.4.1",
+  "private": true,
+  "description": "龙娘桌宠 · Codex 桌面助手",
+  "main": "dist/main/index.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "tsc --noEmit && node scripts/build.mjs",
+    "start": "electron .",
+    "test": "tsx --test tests/*.test.ts",
+    "package": "npm run build && electron-builder --win nsis --x64",
+    "smoke": "node scripts/smoke.mjs",
+    "test:ui": "node scripts/ui-check.mjs",
+    "verify:package": "node scripts/verify-package.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@playwright/mcp": "0.0.83",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "electron": "45.0.0",
+    "electron-builder": "26.15.3",
+    "esbuild": "0.28.2",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vite": "8.3.5"
+  },
+  "build": {
+    "appId": "local.dragonpet.desktop",
+    "productName": "龙娘桌宠",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "dist/native/**/*",
+      "node_modules/playwright*/**/*",
+      "node_modules/@playwright/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "artifactName": "DragonPet-Setup-${version}.${ext}"
+    }
+  }
+}
