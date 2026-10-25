@@ -47,7 +47,7 @@ try {
   await pet.locator('.pet-chat-launcher').click(); await wait('quick', 'compose'); assert.equal(await input.inputValue(), '输入框草稿，切换后仍保留');
   result.checks.push('Quota and close/reopen preserve the composer draft.');
   await pet.evaluate(() => window.pet.setBubbleMode('panel', 'settings')); await wait('panel'); await bubble.getByRole('heading', { name: '桌宠与任务设置', exact: true }).waitFor();
-  await pet.locator('.pet-chat-launcher').click(); await wait('quick', 'compose'); assert.equal(await bubble.locator('.bubble-shell').count(), 0); assert.equal(await input.inputValue(), '输入框草稿，切换后仍保留');
+  await pet.locator('.pet-chat-launcher').click(); await wait('quick', 'compose'); await bubble.locator('.compose-shell').waitFor(); assert.equal(await bubble.locator('.bubble-shell').count(), 0); assert.equal(await input.inputValue(), '输入框草稿，切换后仍保留');
   result.checks.push('Chat logo replaces full panel without a third window.');
   for (const scale of [.65, 1.6, 1]) {
     await pet.evaluate(scale => window.pet.updateSettings({ scale }), scale);
