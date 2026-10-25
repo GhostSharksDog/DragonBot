@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { createQuickBubbleShape, quickBubbleHit } from '../src/shared/bubble-shape.ts';
 
 // An isolated headless browser, a fake preload bridge, and no access to daily Chrome.
 const root = path.resolve(process.env.DRAGON_PET_RENDERER_DIR || 'dist/renderer');
@@ -51,10 +52,10 @@ try {
   const context = await browser.newContext({ viewport: { width: 440, height: 680 }, locale: 'zh-CN' });
   await context.addInitScript(version => {
     let state = {
-      settings: { scale: 1, roaming: true, alwaysOnTop: true, model: '', codexPath: '', chromeExecutablePath: '', chromeUserDataDir: '', chromeProfileDirectory: '', grant: { folders: [], origins: [] }, skinPath: null },
-      assistant: { connected: true, connection: 'ready', login: 'signed-in', diagnostic: null, account: '本地测试账号', models: [{ id: 'test-model', label: '测试模型' }], threadId: 'thread-test', activeTurnId: null, activity: 'idle', messages: [], pending: [], threads: [], browser: 'disconnected', error: null },
+      settings: { scale: 1, roaming: true, alwaysOnTop: true, model: '', reasoningByModel: {}, codexPath: '', chromeExecutablePath: '', chromeUserDataDir: '', chromeProfileDirectory: '', grant: { folders: [], origins: [] }, skinPath: null },
+      assistant: { connected: true, connection: 'ready', login: 'signed-in', diagnostic: null, account: '本地测试账号', models: [{ id: 'test-model', label: '测试模型', isDefault: true, supportedReasoningEfforts: [{ reasoningEffort: 'low', description: '快速处理' }, { reasoningEffort: 'high', description: '仔细处理' }, { reasoningEffort: 'xhigh', description: '更多推理' }], defaultReasoningEffort: 'low' }, { id: 'other-model', label: '另一模型', supportedReasoningEfforts: [{ reasoningEffort: 'medium', description: '适中' }, { reasoningEffort: 'max', description: '最大' }, { reasoningEffort: 'ultra', description: '极致' }], defaultReasoningEffort: 'medium' }], quota: { status: 'ready', stale: false, updatedAt: Date.now(), error: null, buckets: [{ id: 'other', name: '其他额度', primary: { usedPercent: 75, windowDurationMins: 60, resetsAt: Math.floor(Date.now() / 1000) + 3600 }, secondary: null, credits: null, planType: null }, { id: 'codex', name: 'Codex', primary: { usedPercent: 12.5, windowDurationMins: 300, resetsAt: Math.floor(Date.now() / 1000) + 18000 }, secondary: { usedPercent: 40, windowDurationMins: 10080, resetsAt: Math.floor(Date.now() / 1000) + 86400 }, credits: null, planType: 'test' }, { id: 'unknown', name: '未返回窗口', primary: null, secondary: null, credits: null, planType: null }] }, threadId: 'thread-test', activeTurnId: null, activity: 'idle', messages: [], pending: [], threads: [], browser: 'disconnected', error: null },
       browserSetup: { status: 'idle', message: '先检测 Chrome，再安装或启用官方扩展。', profiles: [], selectedProfileId: null, chromeFound: false, canConnect: false },
-      bubbleOpen: true, bubbleMode: 'panel', panelTab: 'chat', skin: null, direction: 'right', motion: 'idle', version,
+      bubbleOpen: true, bubbleMode: 'panel', quickView: 'chat', panelTab: 'chat', skin: null, direction: 'right', motion: 'idle', version,
     };
     const listeners = new Set();
     window.__calls = [];
@@ -63,6 +64,8 @@ try {
     const wait = () => new Promise(resolve => setTimeout(resolve, 100));
     const record = (name, payload) => { window.__calls.push({ name, payload }); };
     let rejectNext = false, rejectNextSend = false;
+    let rejectNextQuota = false;
+    window.__rejectNextQuota = () => { rejectNextQuota = true; };
     let nextInteractionWait = null;
     window.__rejectNext = () => { rejectNext = true; };
     window.__rejectNextSend = () => { rejectNextSend = true; };
@@ -78,7 +81,9 @@ try {
       updateSettings: async patch => { record('settings', patch); state.settings = { ...state.settings, ...patch }; emit(); },
       chooseFolder: async () => 'E:\\桌宠测试', importSkin: async () => { record('skin'); },
       setBubble: async value => { record('bubble', value); state.bubbleOpen = value; state.bubbleMode = value ? 'quick' : 'hidden'; emit(); },
-      setBubbleMode: async (mode, tab) => { record('bubble-mode', { mode, tab }); state.bubbleMode = mode; state.bubbleOpen = mode !== 'hidden'; if (tab) state.panelTab = tab; emit(); },
+      setBubbleMode: async (mode, tab) => { record('bubble-mode', { mode, tab }); state.bubbleMode = mode; state.bubbleOpen = mode !== 'hidden'; if (mode === 'quick') state.quickView = 'chat'; if (tab) state.panelTab = tab; emit(); },
+      openQuota: async () => { record('open-quota'); state.bubbleMode = 'quick'; state.bubbleOpen = true; state.quickView = 'quota'; emit(); },
+      refreshQuota: async () => { record('refresh-quota'); state.assistant.quota = { ...state.assistant.quota, status: 'loading', error: null }; emit(); await wait(); state.assistant.quota = rejectNextQuota ? { ...state.assistant.quota, status: 'error', error: '模拟额度刷新失败', stale: true } : { ...state.assistant.quota, status: 'ready', error: null, stale: false, updatedAt: Date.now() }; rejectNextQuota = false; emit(); },
       showContextMenu: async () => { record('context-menu'); },
       resizeQuickBubble: async height => { record('quick-height', height); },
       drag: async (...args) => { record('drag', args); },
@@ -112,6 +117,25 @@ try {
   await quick.getByText('怎么了？', { exact: true }).waitFor();
   await page.setViewportSize({ width: 320, height: 180 });
   await page.screenshot({ path: path.join(artifactDir, 'quick-greeting.png') });
+  for (const [side, theme] of [['left', 'light'], ['right', 'light'], ['left', 'dark'], ['right', 'dark']]) {
+    const shape = createQuickBubbleShape(320, 180, { x: side === 'left' ? -20 : 340, y: 135 });
+    await page.evaluate(({ shape, theme }) => { document.body.style.background = theme === 'dark' ? '#252232' : '#f4f3f8'; window.__patch({ quickShape: shape }); }, { shape, theme });
+    await page.waitForFunction(path => document.querySelector('.quick-surface path')?.getAttribute('d') === path, shape.path);
+    assert.equal(await page.locator('.quick-surface path').count(), 1, 'Ellipse and tail must share one seamless outline.');
+    assert.equal(quickBubbleHit(shape, 1, 1), false);
+    assert.equal(quickBubbleHit(shape, 319, 179), false);
+    assert.equal(quickBubbleHit(shape, 160, 90), true);
+    const tailCenter = { x: shape.tail.reduce((sum, point) => sum + point.x, 0) / 3, y: shape.tail.reduce((sum, point) => sum + point.y, 0) / 3 };
+    assert.equal(quickBubbleHit(shape, tailCenter.x, tailCenter.y), true, 'The visible speech tip must belong to the native hit region.');
+    const safe = await page.locator('.quick-inner').boundingBox();
+    for (const [key, value] of Object.entries({ x: shape.content.x, y: shape.content.y, width: shape.content.width, height: shape.content.height })) assert(Math.abs(safe[key] - value) < .05, 'Text must occupy the shared inscribed rectangle.');
+    const headerDrag = await page.locator('.quick-header').evaluate(element => getComputedStyle(element).webkitAppRegion);
+    assert.equal(headerDrag, 'no-drag');
+    const controls = await page.locator('.quick-header, .quick-composer').evaluateAll(elements => elements.map(element => { const bounds = element.getBoundingClientRect(); return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }; }));
+    for (const bounds of controls) for (const x of [bounds.x + 1, bounds.x + bounds.width - 1]) for (const y of [bounds.y + 1, bounds.y + bounds.height - 1]) assert(quickBubbleHit(shape, x, y), 'Greeting controls must not be clipped by the ellipse.');
+    await page.screenshot({ path: path.join(artifactDir, `ellipse-${side}-${theme}.png`) });
+  }
+  await page.evaluate(() => { document.body.style.background = 'transparent'; window.__patch({ quickShape: undefined }); });
   await page.setViewportSize({ width: 300, height: 340 });
   assert.equal(await page.locator('.app-nav:visible').count(), 0, 'Quick bubble must omit panel navigation');
   assert.equal(await page.getByText('有事，叫我一声。', { exact: true }).isVisible(), false, 'Quick bubble must not show the panel welcome page');
@@ -131,6 +155,30 @@ try {
   await page.waitForFunction(() => window.__calls.some(call => call.name === 'bubble-mode' && call.payload.mode === 'hidden') || window.__calls.some(call => call.name === 'bubble' && call.payload === false));
   await setMode('quick');
   assert.equal(await quickComposer.inputValue(), '收起和切换时保留这份草稿', 'Closing quick bubble must preserve its unsent draft');
+  const chatBeforeQuota = await page.evaluate(async () => { const state = await window.pet.getState(); return { threadId: state.assistant.threadId, messages: state.assistant.messages }; });
+  await page.evaluate(() => window.pet.openQuota());
+  await page.getByRole('main', { name: 'Codex 额度小气泡' }).waitFor();
+  assert.equal(await page.locator('#quota-bucket').inputValue(), 'codex', 'Codex must be the initial bucket even when the server list has a different order.');
+  assert.equal(Number(await page.getByRole('progressbar', { name: '5 小时额度剩余额度' }).getAttribute('value')), 87.5);
+  assert.equal(Number(await page.getByRole('progressbar', { name: '7 天额度剩余额度' }).getAttribute('value')), 60);
+  await page.locator('#quota-bucket').selectOption('other');
+  assert.equal(Number(await page.getByRole('progressbar', { name: '1 小时额度剩余额度' }).getAttribute('value')), 25);
+  await page.evaluate(() => { window.__rejectNextQuota(); });
+  await page.getByRole('button', { name: '刷新额度', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: '模拟额度刷新失败' }).waitFor();
+  await page.getByText('上次记录，尚未更新。').waitFor();
+  assert.equal(await page.locator('#quota-bucket').inputValue(), 'other', 'Refreshing cached data must retain a still-valid bucket selection.');
+  assert.equal(Number(await page.getByRole('progressbar').getAttribute('value')), 25, 'A refresh error must keep the last real value.');
+  await page.getByRole('button', { name: '刷新额度', exact: true }).click();
+  await page.getByRole('alert').waitFor({ state: 'detached' });
+  await page.locator('#quota-bucket').selectOption('unknown');
+  await page.getByText('暂未返回此窗口额度。').waitFor();
+  assert.equal(await page.getByRole('progressbar').count(), 0, 'Unknown quota must not render as zero percent.');
+  await page.locator('#quota-bucket').selectOption('codex');
+  await page.screenshot({ path: path.join(artifactDir, 'quota-ready.png') });
+  assert.deepEqual(await page.evaluate(async () => { const state = await window.pet.getState(); return { threadId: state.assistant.threadId, messages: state.assistant.messages }; }), chatBeforeQuota, 'Opening and refreshing quota must not add chat messages or change thread.');
+  await page.getByRole('button', { name: '返回聊天', exact: true }).click();
+  assert.equal(await quickComposer.inputValue(), '收起和切换时保留这份草稿', 'Quota must preserve the unsent chat draft.');
   await setMode('panel', 'chat');
   assert.equal(await page.getByRole('textbox', { name: '对龙娘说点什么' }).inputValue(), '收起和切换时保留这份草稿', 'Panel and quick bubble must share one draft');
   await page.getByRole('textbox', { name: '对龙娘说点什么' }).fill('在完整对话修改后的草稿');
@@ -171,6 +219,12 @@ try {
   await setMode('quick');
   if (await quick.getByRole('button', { name: '下一题', exact: true }).isVisible()) await quick.getByRole('button', { name: '下一题', exact: true }).click();
   assert.equal(await quick.getByRole('textbox', { name: '文件夹名称的文字回答' }).inputValue(), '面板中补全的答案', 'Panel edits must flow back into the stepped quick question');
+  await page.evaluate(() => window.pet.openQuota());
+  await page.getByText('有 1 项待回答', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('textbox', { name: '文件夹名称的文字回答' }).count(), 0);
+  await page.screenshot({ path: path.join(artifactDir, 'quota-pending-question.png') });
+  await page.getByRole('button', { name: '返回处理待办', exact: true }).click();
+  assert.equal(await quick.getByRole('textbox', { name: '文件夹名称的文字回答' }).inputValue(), '面板中补全的答案', 'Quota round-trip must preserve question step and answer draft.');
   await page.screenshot({ path: path.join(artifactDir, 'quick-question.png') });
   await quick.getByRole('button', { name: '回答并继续', exact: true }).click();
   await page.waitForFunction(() => window.__calls.some(call => call.name === 'answer' && call.payload.id === 'quick-question'));
@@ -189,6 +243,10 @@ try {
   await page.evaluate(() => window.__holdNextInteraction());
   await quickApprovalCard.getByRole('button', { name: '允许本次', exact: true }).dblclick();
   await page.waitForFunction(() => window.__calls.filter(call => call.name === 'approve' && call.payload.id === 'quick-approval').length === 1);
+  await page.evaluate(() => window.pet.openQuota());
+  await page.getByText('有 1 项待回答或批准', { exact: true }).waitFor();
+  await page.getByRole('button', { name: '返回处理待办', exact: true }).click();
+  assert.equal(await quickApprovalCard.getByRole('button', { name: '允许本次', exact: true }).isDisabled(), true, 'Quota must retain an in-flight approval lock.');
   await setMode('panel', 'chat');
   assert.equal(await page.getByRole('button', { name: '允许本次', exact: true }).isDisabled(), true, 'Approval lock must survive switching into the panel');
   await setMode('quick');
@@ -308,6 +366,23 @@ try {
   await chromeSetup.scrollIntoViewIfNeeded();
   await page.screenshot({ path: path.join(artifactDir, 'chrome-setup.png') });
   const codexSettings = page.locator('.codex-settings');
+  await codexSettings.locator('#model').selectOption('test-model');
+  await codexSettings.locator('#reasoning-effort').selectOption('high');
+  await page.waitForFunction(async () => (await window.pet.getState()).settings.reasoningByModel['test-model'] === 'high');
+  await codexSettings.locator('#model').selectOption('other-model');
+  assert.deepEqual(await codexSettings.locator('#reasoning-effort option').evaluateAll(options => options.map(option => option.value)), ['', 'medium', 'max', 'ultra'], 'Reasoning choices must come only from this model catalog.');
+  await codexSettings.locator('#reasoning-effort').selectOption('ultra');
+  await codexSettings.locator('#model').selectOption('test-model');
+  assert.equal(await codexSettings.locator('#reasoning-effort').inputValue(), 'high', 'Switching models must recover that model’s saved effort.');
+  await codexSettings.locator('#reasoning-effort').selectOption('');
+  await page.waitForFunction(async () => !Object.hasOwn((await window.pet.getState()).settings.reasoningByModel, 'test-model'));
+  assert.equal(await page.evaluate(async () => (await window.pet.getState()).settings.reasoningByModel['other-model']), 'ultra', 'Restoring a model default must preserve other model records.');
+  await page.evaluate(() => window.__patch({ settings: { reasoningByModel: { 'test-model': 'removed-effort', 'other-model': 'ultra' } } }));
+  await codexSettings.getByText('已保存的档位不可用，请改用默认。').waitFor();
+  await codexSettings.getByRole('button', { name: '恢复默认', exact: true }).click();
+  await page.waitForFunction(async () => !Object.hasOwn((await window.pet.getState()).settings.reasoningByModel, 'test-model'));
+  await codexSettings.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(artifactDir, 'model-reasoning.png') });
   await page.evaluate(() => window.__patch({ assistant: { connection: 'reconnecting', login: 'checking' } }));
   await codexSettings.getByText('正在检查这台电脑上的 Codex 登录状态…').waitFor();
   assert.equal(await codexSettings.getByRole('button', { name: '正在连接…' }).isDisabled(), true);
@@ -360,7 +435,7 @@ try {
   await pet.setViewportSize({ width: 200, height: 240 });
   pet.on('pageerror', error => errors.push(error.message));
   await pet.goto(address + '/?view=pet');
-  await pet.getByRole('button', { name: '打开龙娘气泡；按方向键移动桌宠' }).waitFor();
+  await pet.getByRole('button', { name: '打开龙娘气泡；双击查看Codex额度；按方向键移动桌宠' }).waitFor();
   await pet.screenshot({ path: path.join(artifactDir, 'pet-fallback.png') });
   const skin = { baseUrl: address + '/', manifest: { name: '测试动画', width: 200, height: 200, anchor: { x: 100, y: 200 }, animations: { idle: { frames: ['frame-0.png', 'frame-1.png'], fps: 4 }, 'awaiting-input': { frames: ['frame-2.png'], fps: 1 }, speaking: { frames: ['frame-1.png', 'frame-2.png'], fps: 8, loop: false } } } };
   await pet.evaluate(skin => window.__patch({ skin }), skin);
@@ -592,8 +667,34 @@ try {
   await pet.getByRole('button').click({ button: 'right' });
   await pet.waitForFunction(() => window.__calls.some(call => call.name === 'context-menu'));
   assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'bubble-mode' && call.payload.mode === 'panel').length), 0, 'Pet left clicks must only toggle the quick bubble; right click must open its native menu');
+  await pet.evaluate(() => { window.__calls.length = 0; window.__patch({ bubbleMode: 'hidden', quickView: 'chat', bubbleOpen: false }); });
+  await pet.getByRole('button').dblclick({ delay: 70 });
+  await pet.waitForFunction(() => window.__calls.filter(call => call.name === 'open-quota').length === 1);
+  await new Promise(resolve => setTimeout(resolve, 380));
+  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'bubble-mode').length), 0, 'A double click must not flash a single-click chat toggle.');
+  await pet.evaluate(() => { window.__calls.length = 0; });
+  await pet.getByRole('button').click({ clickCount: 3, delay: 55 });
+  await new Promise(resolve => setTimeout(resolve, 380));
+  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'open-quota').length), 1, 'A triple click opens quota once.');
+  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'bubble-mode').length), 0, 'Third click must not queue an extra chat toggle.');
+  await pet.evaluate(() => { window.__calls.length = 0; });
+  await pet.getByRole('button').click();
+  await new Promise(resolve => setTimeout(resolve, 70));
+  await pet.mouse.move(100, 120); await pet.mouse.down(); await pet.mouse.move(115, 128, { steps: 3 }); await pet.mouse.up();
+  await new Promise(resolve => setTimeout(resolve, 380));
+  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'open-quota' || call.name === 'bubble-mode').length), 0, 'A second press that becomes a drag must cancel both click actions.');
+  assert(await pet.evaluate(() => window.__calls.some(call => call.name === 'drag')), 'Real pointer movement must still drag.');
+  await pet.evaluate(() => { window.__calls.length = 0; });
+  await pet.getByRole('button').click(); await pet.getByRole('button').click({ button: 'right' });
+  await new Promise(resolve => setTimeout(resolve, 380));
+  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'context-menu').length), 1);
+  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'open-quota' || call.name === 'bubble-mode').length), 0, 'Right click must cancel the pending single click.');
+  await pet.evaluate(() => { window.__calls.length = 0; });
+  await pet.getByRole('button').click(); await pet.getByRole('button').press('ArrowRight');
+  await new Promise(resolve => setTimeout(resolve, 380));
+  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'open-quota' || call.name === 'bubble-mode').length), 0, 'Keyboard movement must cancel the pending click.');
   assert.deepEqual(errors, [], 'Renderer should have no uncaught exceptions');
-  console.log('Renderer checks passed: quick/panel modes, retained drafts and stepped answers, approval deduplication, bounded quick height, native-menu bridge, default skin playback and switching, preserved legacy 24-fps contracts, outline clipping and anchors, Chrome setup, login phases, IME, permissions, questions, mirroring, and movement.');
+  console.log('Renderer checks passed: ellipse/tail safe layout, quota buckets/cache/pending coexistence, per-model reasoning choices, delayed single/double/triple/drag gestures, quick/panel drafts and approval locks, default/legacy animation clocks, cropping/anchors, Chrome setup, login phases, IME and task scope.');
   console.log('Screenshots: ' + artifactDir);
 } finally {
   await browser?.close();
