@@ -113,7 +113,7 @@ function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
     }
   }, [assistant.messages, assistant.pending, tab]);
   useEffect(() => { if (mode === 'panel') setTab(snapshot.panelTab ?? 'chat'); }, [mode, snapshot.panelTab]);
-  useEffect(() => { composing.current = false; }, [mode]);
+  useEffect(() => { composing.current = false; }, [mode, snapshot.quickView]);
   useEffect(() => {
     if (mode !== 'panel') return;
     const input = composer.current;
@@ -158,8 +158,14 @@ function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
     finally { pendingActions.current.delete('quota'); setBusy(new Set(pendingActions.current)); }
   }
   if (mode === 'hidden') return null;
-  if (mode === 'quick' && snapshot.quickView === 'quota') return <QuotaBubble snapshot={snapshot} refreshing={busy.has('quota')} refresh={() => { void refreshQuota(); }} error={quotaError} back={() => { void window.pet.setBubbleMode('quick').catch(reason => setQuotaError(errorText(reason))); }} close={() => { void window.pet.setBubbleMode('hidden').catch(reason => setQuotaError(errorText(reason))); }} />;
-  if (mode === 'quick') return <QuickBubble shape={snapshot.quickShape} draft={draft} setDraft={setDraft} inputRef={composer} reply={reply} expanded={expandedReply} setExpanded={setExpandedReply} interaction={assistant.pending[0] ? interaction(assistant.pending[0], true) : null} interactionCount={assistant.pending.length} approval={assistant.pending[0]?.kind === 'approval'} connected={assistant.connected} active={active} thinking={active && assistant.activity === 'thinking'} sending={busy.has('send')} stopping={busy.has('stop')} error={error || assistant.error} status={status} renderMessage={text => <MessageBody text={text} openExternal={openExternal} />} send={send} stop={() => { void perform('stop', () => window.pet.stop()); }} close={() => { void perform('collapse', () => window.pet.setBubbleMode('hidden')); }} />;
+  if (mode === 'quick' && snapshot.quickView === 'quota') return <QuotaBubble snapshot={snapshot} refreshing={busy.has('quota')} refresh={() => { void refreshQuota(); }} error={quotaError} back={() => { void window.pet.showReply().catch(reason => setQuotaError(errorText(reason))); }} close={() => { void window.pet.setBubbleMode('hidden').catch(reason => setQuotaError(errorText(reason))); }} />;
+  if (mode === 'quick') {
+    const pending = assistant.pending[0];
+    const questionStep = pending?.kind === 'question' ? Math.max(0, Math.min(questionDrafts[pending.id]?.step ?? 0, pending.questions.length - 1)) : 0;
+    const question = pending?.kind === 'question' ? pending.questions[questionStep] : null;
+    const questionPrompt = question ? <div className="quick-question-prompt"><p className="quick-reply-text">{question.question}</p><p className="quick-status">点击旁边的聊天图标回答。{pending?.kind === 'question' && pending.questions.length > 1 ? `（${questionStep + 1}/${pending.questions.length}）` : ''}</p></div> : null;
+    return <QuickBubble shape={snapshot.quickShape} compose={snapshot.quickView === 'compose'} draft={draft} setDraft={setDraft} inputRef={composer} reply={reply} expanded={expandedReply} setExpanded={setExpandedReply} interaction={pending ? interaction(pending, true) : null} questionPrompt={questionPrompt} interactionCount={assistant.pending.length} approval={pending?.kind === 'approval'} connected={assistant.connected} active={active} thinking={active && assistant.activity === 'thinking'} sending={busy.has('send')} error={error || assistant.error} status={status} send={send} close={() => { void perform('collapse', () => window.pet.setBubbleMode('hidden')); }} />;
+  }
 
   return <main className="bubble-shell">
     <header className="app-header">
@@ -222,12 +228,13 @@ function MessageBody({ text, openExternal }: { text: string; openExternal(url: s
 
 interface QuestionDraft { values: Record<string, string>; custom: Record<string, boolean>; step: number }
 function Interaction({ request, locked, compact, draft, onDraft, onApprove, onAnswer }: { request: PendingInteraction; locked: boolean; compact: boolean; draft: QuestionDraft; onDraft(draft: QuestionDraft): void; onApprove(decision: ApprovalDecision): Promise<boolean>; onAnswer(answers: Record<string, string[]>): Promise<boolean> }) {
-  if (request.kind === 'approval') return <ApprovalCard request={request} locked={locked} approve={onApprove} />;
+  if (request.kind === 'approval') return <ApprovalCard request={request} locked={locked} compact={compact} approve={onApprove} />;
   return <QuestionCard request={request} locked={locked} compact={compact} draft={draft} onDraft={onDraft} answer={onAnswer} />;
 }
 
-function ApprovalCard({ request, locked, approve }: { request: ApprovalRequest; locked: boolean; approve(decision: ApprovalDecision): Promise<boolean> }) {
-  return <section className="interaction-card approval-card" aria-label="等待批准"><div className="interaction-label"><Icon name="shield" size={15} />需要你批准<span>等待回应</span></div><h3>{request.title}</h3><p>{request.description}</p>{request.details.length > 0 && <div className="request-details">{request.details.map((detail, index) => <pre key={index}>{detail}</pre>)}</div>}<div className="approval-actions"><button className="button primary" disabled={locked} onClick={() => { void approve('allow'); }}><Icon name="check" size={15} />允许本次</button><button className="button" disabled={locked} onClick={() => { void approve('deny'); }}>拒绝</button><button className="text-button danger" disabled={locked} onClick={() => { void approve('stop'); }}>停止任务</button></div>{request.supportsSession && <button className="session-approval" disabled={locked} onClick={() => { void approve('session'); }}>对此请求允许到本会话结束<Icon name="chevron" size={12} /></button>}<p className="approval-note">{locked ? '正在提交回应…' : '没有你的选择，我会继续等待。'}</p></section>;
+function ApprovalCard({ request, locked, compact, approve }: { request: ApprovalRequest; locked: boolean; compact: boolean; approve(decision: ApprovalDecision): Promise<boolean> }) {
+  const details = <div className="request-details">{request.details.map((detail, index) => <pre key={index}>{detail}</pre>)}</div>;
+  return <section className="interaction-card approval-card" aria-label="等待批准">{!compact && <div className="interaction-label"><Icon name="shield" size={15} />需要你批准<span>等待回应</span></div>}<h3>{request.title}</h3><p>{request.description}</p>{request.details.length > 0 && (compact ? <details className="compact-request-details"><summary>查看操作详情</summary>{details}</details> : details)}<div className="approval-actions"><button className="button primary" disabled={locked} onClick={() => { void approve('allow'); }}>{!compact && <Icon name="check" size={15} />}允许本次</button><button className="button" disabled={locked} onClick={() => { void approve('deny'); }}>拒绝</button><button className="text-button danger" disabled={locked} onClick={() => { void approve('stop'); }}>停止任务</button></div>{request.supportsSession && <button className="session-approval" disabled={locked} onClick={() => { void approve('session'); }}>对此请求允许到本会话结束{!compact && <Icon name="chevron" size={12} />}</button>}{(!compact || locked) && <p className="approval-note">{locked ? '正在提交回应…' : '没有你的选择，我会继续等待。'}</p>}</section>;
 }
 
 function QuestionCard({ request, locked, compact, draft, onDraft, answer }: { request: QuestionRequest; locked: boolean; compact: boolean; draft: QuestionDraft; onDraft(draft: QuestionDraft): void; answer(answers: Record<string, string[]>): Promise<boolean> }) {

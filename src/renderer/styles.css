@@ -8,6 +8,7 @@ button, input, textarea, select, summary { -webkit-tap-highlight-color: transpar
 button { -webkit-app-region: no-drag; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid #7d6994; outline-offset: 3px; }
 svg { flex-shrink: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 button { transition: background .16s, color .16s, border-color .16s, opacity .16s; }
 button:active:not(:disabled) { filter: brightness(.97); }
 ::selection { color: #2f253a; background: #dad1e4; }
@@ -226,6 +227,9 @@ select.field-input { min-height: 34px; }
 .pet-button { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; padding: 0; cursor: grab; touch-action: none; border-radius: 24px; }
 .pet-button:active { cursor: grabbing; filter: none !important; }
 .pet-button:focus-visible { outline-offset: -4px; }
+.pet-chat-launcher { position: absolute; z-index: 3; display: grid; place-items: center; padding: 0; border: 1px solid #cfbfdc; background: #fcfaff; color: #7b628f; cursor: pointer; box-shadow: 0 2px 4px #4c365518; touch-action: manipulation; }
+.pet-chat-launcher:hover, .pet-chat-launcher[aria-pressed="true"] { border-color: #a58bb9; background: #eee7f5; color: #604575; }
+.pet-chat-launcher.has-pending { border-color: #b69a73; color: #8a6740; }
 .pet-egg { width: 90%; height: 83.333333%; position: absolute; bottom: 8px; left: 5%; overflow: visible; filter: drop-shadow(0 3px 2px #43394e0a); }
 .pet-egg .egg-body { transform-origin: 50% 90%; animation: egg-breathe 4.8s ease-in-out infinite; }
 .pet-egg .egg-eyes { transform-origin: 50% 51%; animation: egg-blink 6s infinite; }
@@ -300,9 +304,13 @@ select.field-input { min-height: 34px; }
 .quick-header-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .quick-header strong { color: #584465; font-weight: 600; font-size: 14px; letter-spacing: .25px; }
 .quick-header .icon-button { width: 24px; height: 24px; color: #8e7e9b; -webkit-app-region: no-drag; }
+.quick-dismiss { position: absolute; z-index: 2; width: 18px; height: 18px; padding: 0; color: #9c8ba8; opacity: 0; pointer-events: auto; }
+.quick-shell:hover .quick-dismiss, .quick-dismiss:focus-visible { opacity: 1; }
 .quick-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .quick-content { width: 100%; }
 .quick-reply .message-body { font-size: 12px; line-height: 1.8; color: #5b4a66; }
+.quick-reply-text { margin: 0; color: #5b4a66; font-size: 13px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.quick-question-prompt .quick-status { margin-top: 8px; }
 .quick-reply.is-collapsed { max-height: 86px; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
 .quick-expand { margin-top: 4px; color: #8a729d; font-size: 10px; }
 .quick-expand[aria-expanded="true"] svg { transform: rotate(-90deg); }
@@ -311,20 +319,23 @@ select.field-input { min-height: 34px; }
 .quick-error { margin: 0 0 7px; padding: 6px 8px; background: #fbefeb; color: #976455; border-radius: 7px; font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; white-space: pre-wrap; }
 .quick-footer { flex-shrink: 0; }
 .quick-footer:empty { display: none; }
-.quick-composer { display: flex; align-items: flex-end; gap: 7px; border: 1px solid #ded3e8; border-radius: 11px; padding: 8px; background: #fff; }
-.quick-composer:focus-within { border-color: #b39ac8; box-shadow: 0 0 0 2px #aa8fc00b; }
-.quick-composer textarea { flex: 1; min-width: 0; width: 100%; display: block; resize: none; border: 0; background: transparent; outline: 0; box-shadow: none; font-size: 12px; line-height: 1.55; color: #64516f; min-height: 34px; max-height: 72px; padding: 0; overflow-y: auto; }
+.quick-composer { display: flex; align-items: flex-end; gap: 8px; padding: 3px 0; background: transparent; }
+.quick-composer textarea { flex: 1; min-width: 0; width: 100%; display: block; resize: none; border: 0; background: transparent; outline: 0; box-shadow: none; font-size: 13px; line-height: 1.7; color: #64516f; min-height: 68px; max-height: 112px; padding: 0; overflow-y: auto; }
 .quick-composer textarea:focus-visible { outline: 0; }
 .quick-composer textarea::placeholder { color: #b2a3bb; }
 .quick-composer .send-button { width: 27px; height: 27px; flex: 0 0 27px; border-radius: 8px; background: #9c83b0; border-color: #967dac; box-shadow: none; }
 .quick-stop { font-size: 9px; margin: 5px 1px 0 auto; color: #a08a79; }
 .quick-queue { font-size: 10px; color: #97839f; line-height: 1.6; margin: 0 0 7px; }
-.quick-shell .interaction-card { margin: 0; padding: 9px; border-radius: 10px; box-shadow: none; }
+.quick-shell .interaction-card { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .quick-shell .interaction-label { font-size: 9px; margin-bottom: 7px; }
+.quick-shell .interaction-label > svg, .quick-shell .question-options label > svg, .quick-shell .question-navigation svg { display: none; }
 .quick-shell .interaction-card h3 { font-size: 12px; margin-bottom: 6px; }
 .quick-shell .interaction-card p { font-size: 11px; line-height: 1.65; margin-bottom: 8px; }
 .quick-shell .request-details { max-height: none; overflow: visible; padding: 7px; margin-bottom: 9px; }
 .quick-shell .request-details pre { font-size: 10px; }
+.compact-request-details { margin: 0 0 10px; font-size: 10px; color: #8a729d; }
+.compact-request-details summary { cursor: pointer; }
+.compact-request-details .request-details { margin: 7px 0 0; }
 .quick-shell .approval-actions { flex-wrap: wrap; gap: 6px; }
 .quick-shell .approval-actions .button { padding: 6px 9px; min-height: 29px; font-size: 10px; }
 .quick-shell .approval-note { margin-top: 8px !important; font-size: 9px !important; }

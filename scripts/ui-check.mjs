@@ -73,8 +73,8 @@ try {
     const waitForInteraction = async () => { const held = nextInteractionWait; nextInteractionWait = null; if (held) await held; await wait(); };
     window.pet = {
       getState: async () => structuredClone(state), onState: listener => { listeners.add(listener); return () => listeners.delete(listener); },
-      send: async text => { record('send', text); await wait(); if (rejectNextSend) { rejectNextSend = false; throw new Error('模拟消息发送失败'); } },
-      answer: async payload => { record('answer', payload); await waitForInteraction(); state.assistant.pending = state.assistant.pending.filter(item => item.id !== payload.id); emit(); },
+      send: async text => { record('send', text); await wait(); if (rejectNextSend) { rejectNextSend = false; throw new Error('模拟消息发送失败'); } if (state.bubbleMode === 'quick' && state.quickView === 'compose') state.quickView = 'chat'; emit(); },
+      answer: async payload => { record('answer', payload); await waitForInteraction(); state.assistant.pending = state.assistant.pending.filter(item => item.id !== payload.id); if (state.bubbleMode === 'quick' && state.quickView === 'compose') state.quickView = 'chat'; emit(); },
       approve: async (id, decision) => { record('approve', { id, decision }); await waitForInteraction(); if (rejectNext) { rejectNext = false; throw new Error('模拟过期审批请求'); } state.assistant.pending = state.assistant.pending.filter(item => item.id !== id); emit(); },
       stop: async () => { record('stop'); state.assistant.activeTurnId = null; state.assistant.pending = []; emit(); },
       newThread: async () => { record('new'); }, resumeThread: async id => { record('resume', id); },
@@ -82,6 +82,8 @@ try {
       chooseFolder: async () => 'E:\\桌宠测试', importSkin: async () => { record('skin'); },
       setBubble: async value => { record('bubble', value); state.bubbleOpen = value; state.bubbleMode = value ? 'quick' : 'hidden'; emit(); },
       setBubbleMode: async (mode, tab) => { record('bubble-mode', { mode, tab }); state.bubbleMode = mode; state.bubbleOpen = mode !== 'hidden'; if (mode === 'quick') state.quickView = 'chat'; if (tab) state.panelTab = tab; emit(); },
+      showReply: async () => { record('show-reply'); state.bubbleMode = 'quick'; state.bubbleOpen = true; state.quickView = 'chat'; emit(); },
+      openComposer: async () => { record('open-composer'); state.bubbleMode = 'quick'; state.bubbleOpen = true; state.quickView = 'compose'; emit(); },
       openQuota: async () => { record('open-quota'); state.bubbleMode = 'quick'; state.bubbleOpen = true; state.quickView = 'quota'; emit(); },
       refreshQuota: async () => { record('refresh-quota'); state.assistant.quota = { ...state.assistant.quota, status: 'loading', error: null }; emit(); await wait(); state.assistant.quota = rejectNextQuota ? { ...state.assistant.quota, status: 'error', error: '模拟额度刷新失败', stale: true } : { ...state.assistant.quota, status: 'ready', error: null, stale: false, updatedAt: Date.now() }; rejectNextQuota = false; emit(); },
       showContextMenu: async () => { record('context-menu'); },
@@ -112,16 +114,18 @@ try {
   };
   const quick = page.locator('.quick-shell');
   const quickComposer = quick.getByRole('textbox', { name: '对龙娘说点什么' });
+  const openComposer = async () => { await page.evaluate(() => window.pet.openComposer()); await quick.locator('.quick-composer, .question-card').waitFor(); assert.equal(await page.locator('.reply-shell, .quota-shell').count(), 0, 'Input replaces every other quick view.'); };
   await page.setViewportSize({ width: 300, height: 340 });
   await setMode('quick');
-  await quick.getByText('怎么了？', { exact: true }).waitFor();
+  await quick.getByText('我在，点旁边的聊天图标和我说话吧。', { exact: true }).waitFor();
+  assert.equal(await quick.locator('textarea, input').count(), 0, 'Reply bubble must have no embedded input.');
   await page.setViewportSize({ width: 320, height: 180 });
   await page.screenshot({ path: path.join(artifactDir, 'quick-greeting.png') });
   for (const [side, theme] of [['left', 'light'], ['right', 'light'], ['left', 'dark'], ['right', 'dark']]) {
     const shape = createQuickBubbleShape(320, 180, { x: side === 'left' ? -20 : 340, y: 135 });
     await page.evaluate(({ shape, theme }) => { document.body.style.background = theme === 'dark' ? '#252232' : '#f4f3f8'; window.__patch({ quickShape: shape }); }, { shape, theme });
     await page.waitForFunction(path => document.querySelector('.quick-surface path')?.getAttribute('d') === path, shape.path);
-    assert.equal(await page.locator('.quick-surface path').count(), 1, 'Ellipse and tail must share one seamless outline.');
+    assert.equal(await page.locator('.quick-surface path').count(), 1, 'Rounded rectangle and tail must share one seamless outline.');
     assert.equal(quickBubbleHit(shape, 1, 1), false);
     assert.equal(quickBubbleHit(shape, 319, 179), false);
     assert.equal(quickBubbleHit(shape, 160, 90), true);
@@ -129,16 +133,18 @@ try {
     assert.equal(quickBubbleHit(shape, tailCenter.x, tailCenter.y), true, 'The visible speech tip must belong to the native hit region.');
     const safe = await page.locator('.quick-inner').boundingBox();
     for (const [key, value] of Object.entries({ x: shape.content.x, y: shape.content.y, width: shape.content.width, height: shape.content.height })) assert(Math.abs(safe[key] - value) < .05, 'Text must occupy the shared inscribed rectangle.');
-    const headerDrag = await page.locator('.quick-header').evaluate(element => getComputedStyle(element).webkitAppRegion);
-    assert.equal(headerDrag, 'no-drag');
+    const headerDrag = await page.locator('.quick-inner').evaluate(element => getComputedStyle(element).webkitAppRegion);
+    assert.notEqual(headerDrag, 'drag');
     const controls = await page.locator('.quick-header, .quick-composer').evaluateAll(elements => elements.map(element => { const bounds = element.getBoundingClientRect(); return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }; }));
-    for (const bounds of controls) for (const x of [bounds.x + 1, bounds.x + bounds.width - 1]) for (const y of [bounds.y + 1, bounds.y + bounds.height - 1]) assert(quickBubbleHit(shape, x, y), 'Greeting controls must not be clipped by the ellipse.');
-    await page.screenshot({ path: path.join(artifactDir, `ellipse-${side}-${theme}.png`) });
+    for (const bounds of controls) for (const x of [bounds.x + 1, bounds.x + bounds.width - 1]) for (const y of [bounds.y + 1, bounds.y + bounds.height - 1]) assert(quickBubbleHit(shape, x, y), 'Greeting controls must not be clipped by the rounded corners.');
+    await page.screenshot({ path: path.join(artifactDir, `rounded-${side}-${theme}.png`) });
   }
   await page.evaluate(() => { document.body.style.background = 'transparent'; window.__patch({ quickShape: undefined }); });
   await page.setViewportSize({ width: 300, height: 340 });
   assert.equal(await page.locator('.app-nav:visible').count(), 0, 'Quick bubble must omit panel navigation');
   assert.equal(await page.getByText('有事，叫我一声。', { exact: true }).isVisible(), false, 'Quick bubble must not show the panel welcome page');
+  await openComposer();
+  await page.screenshot({ path: path.join(artifactDir, 'quick-input.png') });
   await quickComposer.fill('小气泡中文输入检查');
   await quickComposer.dispatchEvent('compositionstart');
   await quickComposer.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 229, isComposing: true, bubbles: true });
@@ -148,12 +154,14 @@ try {
   assert.equal(await page.evaluate(() => window.__calls.filter(call => call.name === 'send').length), 0, 'Quick Shift Enter must not send');
   await quickComposer.press('Enter');
   await page.waitForFunction(() => window.__calls.filter(call => call.name === 'send').length === 1);
-  await page.waitForFunction(() => document.querySelector('.quick-shell textarea')?.value === '');
+  await page.waitForFunction(() => document.querySelector('.reply-shell') && !document.querySelector('.quick-shell textarea'));
   assert.equal(await page.evaluate(() => window.__calls.find(call => call.name === 'send').payload), '小气泡中文输入检查');
+  await openComposer();
+  assert.equal(await quickComposer.inputValue(), '', 'Successful send clears only its submitted draft.');
   await quickComposer.fill('收起和切换时保留这份草稿');
   await quick.getByRole('button', { name: '收起气泡', exact: true }).click();
   await page.waitForFunction(() => window.__calls.some(call => call.name === 'bubble-mode' && call.payload.mode === 'hidden') || window.__calls.some(call => call.name === 'bubble' && call.payload === false));
-  await setMode('quick');
+  await openComposer();
   assert.equal(await quickComposer.inputValue(), '收起和切换时保留这份草稿', 'Closing quick bubble must preserve its unsent draft');
   const chatBeforeQuota = await page.evaluate(async () => { const state = await window.pet.getState(); return { threadId: state.assistant.threadId, messages: state.assistant.messages }; });
   await page.evaluate(() => window.pet.openQuota());
@@ -171,6 +179,7 @@ try {
   assert.equal(Number(await page.getByRole('progressbar').getAttribute('value')), 25, 'A refresh error must keep the last real value.');
   await page.getByRole('button', { name: '刷新额度', exact: true }).click();
   await page.getByRole('alert').waitFor({ state: 'detached' });
+  await page.waitForFunction(async () => { const quota = (await window.pet.getState()).assistant.quota; return quota.status === 'ready' && !quota.stale; });
   await page.locator('#quota-bucket').selectOption('unknown');
   await page.getByText('暂未返回此窗口额度。').waitFor();
   assert.equal(await page.getByRole('progressbar').count(), 0, 'Unknown quota must not render as zero percent.');
@@ -178,23 +187,26 @@ try {
   await page.screenshot({ path: path.join(artifactDir, 'quota-ready.png') });
   assert.deepEqual(await page.evaluate(async () => { const state = await window.pet.getState(); return { threadId: state.assistant.threadId, messages: state.assistant.messages }; }), chatBeforeQuota, 'Opening and refreshing quota must not add chat messages or change thread.');
   await page.getByRole('button', { name: '返回聊天', exact: true }).click();
+  assert.equal(await quickComposer.count(), 0, 'Returning from quota shows the reply, not the input.');
+  await openComposer();
   assert.equal(await quickComposer.inputValue(), '收起和切换时保留这份草稿', 'Quota must preserve the unsent chat draft.');
   await setMode('panel', 'chat');
   assert.equal(await page.getByRole('textbox', { name: '对龙娘说点什么' }).inputValue(), '收起和切换时保留这份草稿', 'Panel and quick bubble must share one draft');
   await page.getByRole('textbox', { name: '对龙娘说点什么' }).fill('在完整对话修改后的草稿');
-  await setMode('quick');
+  await openComposer();
   assert.equal(await quickComposer.inputValue(), '在完整对话修改后的草稿');
   await page.evaluate(() => window.__rejectNextSend());
   await quick.getByRole('button', { name: '发送消息', exact: true }).click();
   await quick.getByRole('alert').filter({ hasText: '模拟消息发送失败' }).waitFor();
   assert.equal(await quickComposer.inputValue(), '在完整对话修改后的草稿', 'Failed quick sends must retain the draft');
   await quick.getByRole('button', { name: '发送消息', exact: true }).click();
-  await page.waitForFunction(() => document.querySelector('.quick-shell textarea')?.value === '');
+  await page.waitForFunction(() => document.querySelector('.reply-shell') && !document.querySelector('.quick-shell textarea'));
   assert.equal(await page.evaluate(() => window.__calls.filter(call => call.name === 'send').length), 3, 'Each explicit quick send must call the bridge once');
 
   const longReply = '长回复正文。'.repeat(100) + '\n\n最后一句仍留在小气泡里。';
   const modeCallsBeforeReply = await page.evaluate(() => window.__calls.filter(call => call.name === 'bubble-mode').length);
   await page.evaluate(text => window.__patch({ assistant: { messages: [{ id: 'quick-long-reply', role: 'assistant', text, createdAt: Date.now() }] } }), longReply);
+  assert.equal(await quick.locator('textarea, input').count(), 0, 'Incoming text must never bring an input into the reply bubble.');
   await quick.getByRole('button', { name: '展开回复', exact: true }).click();
   await quick.getByRole('button', { name: '收起回复', exact: true }).waitFor();
   assert.equal(await page.locator('.app-nav:visible').count(), 0, 'Expanding a long reply must stay inside quick mode');
@@ -202,9 +214,17 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'Quick bubble must fit its 300 pixel window');
   await page.screenshot({ path: path.join(artifactDir, 'quick-long-reply.png') });
   await quick.getByRole('button', { name: '收起回复', exact: true }).click();
+  await page.evaluate(() => window.__patch({ assistant: { messages: [{ id: 'quick-short-reply', role: 'assistant', text: '整理好了，图片和文档已经分别放好。', createdAt: Date.now() }] } }));
+  await page.setViewportSize({ width: 320, height: 118 });
+  await page.screenshot({ path: path.join(artifactDir, 'quick-text-reply.png') });
+  await page.setViewportSize({ width: 320, height: 340 });
 
   const quickQuestion = { id: 'quick-question', kind: 'question', threadId: 'thread-test', turnId: 'quick-turn', title: '确认两件事', questions: [{ id: 'style', header: '整理方式', question: '你希望按什么分类？', options: [{ label: '按类型', description: '图片和文档分别整理。' }, { label: '按日期' }] }, { id: 'folder-name', header: '文件夹名称', question: '新建的文件夹叫什么？' }] };
   await page.evaluate(request => window.__patch({ assistant: { pending: [request], activity: 'awaiting-input', activeTurnId: 'quick-turn' } }), quickQuestion);
+  await quick.locator('.quick-question-prompt').waitFor();
+  assert.equal(await quick.locator('textarea, input').count(), 0, 'Automatic questions show text until the chat logo opens the answer input.');
+  await page.screenshot({ path: path.join(artifactDir, 'quick-question-text.png') });
+  await openComposer();
   await quick.getByRole('button', { name: '下一题', exact: true }).waitFor();
   assert.equal(await quick.getByRole('button', { name: '下一题', exact: true }).isDisabled(), true, 'Step one needs an answer before advancing');
   await quick.getByRole('radio', { name: '按类型' }).check();
@@ -216,7 +236,7 @@ try {
   assert.equal(await page.getByRole('radio', { name: '按类型' }).isChecked(), true, 'Question choices must survive quick to panel switching');
   assert.equal(await page.getByRole('textbox', { name: '文件夹名称的文字回答' }).inputValue(), '小气泡中的答案');
   await page.getByRole('textbox', { name: '文件夹名称的文字回答' }).fill('面板中补全的答案');
-  await setMode('quick');
+  await openComposer();
   if (await quick.getByRole('button', { name: '下一题', exact: true }).isVisible()) await quick.getByRole('button', { name: '下一题', exact: true }).click();
   assert.equal(await quick.getByRole('textbox', { name: '文件夹名称的文字回答' }).inputValue(), '面板中补全的答案', 'Panel edits must flow back into the stepped quick question');
   await page.evaluate(() => window.pet.openQuota());
@@ -224,6 +244,9 @@ try {
   assert.equal(await page.getByRole('textbox', { name: '文件夹名称的文字回答' }).count(), 0);
   await page.screenshot({ path: path.join(artifactDir, 'quota-pending-question.png') });
   await page.getByRole('button', { name: '返回处理待办', exact: true }).click();
+  await quick.locator('.quick-question-prompt').waitFor();
+  assert.equal(await quick.locator('textarea, input').count(), 0);
+  await openComposer();
   assert.equal(await quick.getByRole('textbox', { name: '文件夹名称的文字回答' }).inputValue(), '面板中补全的答案', 'Quota round-trip must preserve question step and answer draft.');
   await page.screenshot({ path: path.join(artifactDir, 'quick-question.png') });
   await quick.getByRole('button', { name: '回答并继续', exact: true }).click();
@@ -255,7 +278,7 @@ try {
   await quickApprovalCard.getByRole('button', { name: '允许本次', exact: true }).waitFor({ state: 'detached' });
   assert.equal(await page.evaluate(() => window.__calls.filter(call => call.name === 'approve' && call.payload.id === 'quick-approval').length), 1, 'Quick and panel must not approve the same request twice');
   await page.waitForFunction(() => window.__calls.some(call => call.name === 'quick-height'));
-  assert.equal(await page.evaluate(() => window.__calls.filter(call => call.name === 'quick-height').every(call => Number.isFinite(call.payload) && call.payload >= 180 && call.payload <= 360)), true, 'Measured quick-window heights must remain bounded');
+  assert.equal(await page.evaluate(() => window.__calls.filter(call => call.name === 'quick-height').every(call => Number.isFinite(call.payload) && call.payload >= 80 && call.payload <= 360)), true, 'Measured quick-window heights must remain bounded');
 
   await setMode('panel', 'settings');
   await page.getByRole('heading', { name: '桌宠与任务设置', exact: true }).waitFor();
@@ -435,7 +458,8 @@ try {
   await pet.setViewportSize({ width: 200, height: 240 });
   pet.on('pageerror', error => errors.push(error.message));
   await pet.goto(address + '/?view=pet');
-  await pet.getByRole('button', { name: '打开龙娘气泡；双击查看Codex额度；按方向键移动桌宠' }).waitFor();
+  await pet.locator('.pet-button').waitFor();
+  await pet.getByRole('button', { name: '输入消息', exact: true }).waitFor();
   await pet.screenshot({ path: path.join(artifactDir, 'pet-fallback.png') });
   const skin = { baseUrl: address + '/', manifest: { name: '测试动画', width: 200, height: 200, anchor: { x: 100, y: 200 }, animations: { idle: { frames: ['frame-0.png', 'frame-1.png'], fps: 4 }, 'awaiting-input': { frames: ['frame-2.png'], fps: 1 }, speaking: { frames: ['frame-1.png', 'frame-2.png'], fps: 8, loop: false } } } };
   await pet.evaluate(skin => window.__patch({ skin }), skin);
@@ -657,44 +681,54 @@ try {
       await pet.screenshot({ path: path.join(artifactDir, `pet-${name}-${index + 1}.png`) });
     }
   }
-  await pet.getByRole('button').press('ArrowLeft');
+  await pet.locator('.pet-button').press('ArrowLeft');
   assert.deepEqual(await pet.evaluate(() => window.__calls.find(call => call.name === 'drag').payload), [-12, 0]);
   await pet.evaluate(() => window.__patch({ bubbleMode: 'hidden', bubbleOpen: false }));
-  await pet.getByRole('button').click();
-  await pet.waitForFunction(() => window.__calls.some(call => call.name === 'bubble-mode' && call.payload.mode === 'quick'));
-  await pet.getByRole('button').click();
+  await pet.locator('.pet-button').click();
+  await pet.waitForFunction(() => window.__calls.some(call => call.name === 'show-reply'));
+  await pet.locator('.pet-button').click();
   await pet.waitForFunction(() => window.__calls.some(call => call.name === 'bubble-mode' && call.payload.mode === 'hidden'));
-  await pet.getByRole('button').click({ button: 'right' });
+  await pet.locator('.pet-button').click({ button: 'right' });
   await pet.waitForFunction(() => window.__calls.some(call => call.name === 'context-menu'));
   assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'bubble-mode' && call.payload.mode === 'panel').length), 0, 'Pet left clicks must only toggle the quick bubble; right click must open its native menu');
   await pet.evaluate(() => { window.__calls.length = 0; window.__patch({ bubbleMode: 'hidden', quickView: 'chat', bubbleOpen: false }); });
-  await pet.getByRole('button').dblclick({ delay: 70 });
+  await pet.locator('.pet-button').dblclick({ delay: 70 });
   await pet.waitForFunction(() => window.__calls.filter(call => call.name === 'open-quota').length === 1);
   await new Promise(resolve => setTimeout(resolve, 380));
-  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'bubble-mode').length), 0, 'A double click must not flash a single-click chat toggle.');
+  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'bubble-mode' || call.name === 'show-reply').length), 0, 'A double click must not flash a single-click chat toggle.');
   await pet.evaluate(() => { window.__calls.length = 0; });
-  await pet.getByRole('button').click({ clickCount: 3, delay: 55 });
+  await pet.locator('.pet-button').click({ clickCount: 3, delay: 55 });
   await new Promise(resolve => setTimeout(resolve, 380));
   assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'open-quota').length), 1, 'A triple click opens quota once.');
-  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'bubble-mode').length), 0, 'Third click must not queue an extra chat toggle.');
+  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'bubble-mode' || call.name === 'show-reply').length), 0, 'Third click must not queue an extra chat toggle.');
   await pet.evaluate(() => { window.__calls.length = 0; });
-  await pet.getByRole('button').click();
+  await pet.locator('.pet-button').click();
   await new Promise(resolve => setTimeout(resolve, 70));
   await pet.mouse.move(100, 120); await pet.mouse.down(); await pet.mouse.move(115, 128, { steps: 3 }); await pet.mouse.up();
   await new Promise(resolve => setTimeout(resolve, 380));
-  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'open-quota' || call.name === 'bubble-mode').length), 0, 'A second press that becomes a drag must cancel both click actions.');
+  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'open-quota' || call.name === 'bubble-mode' || call.name === 'show-reply').length), 0, 'A second press that becomes a drag must cancel both click actions.');
   assert(await pet.evaluate(() => window.__calls.some(call => call.name === 'drag')), 'Real pointer movement must still drag.');
   await pet.evaluate(() => { window.__calls.length = 0; });
-  await pet.getByRole('button').click(); await pet.getByRole('button').click({ button: 'right' });
+  await pet.locator('.pet-button').click(); await pet.locator('.pet-button').click({ button: 'right' });
   await new Promise(resolve => setTimeout(resolve, 380));
   assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'context-menu').length), 1);
-  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'open-quota' || call.name === 'bubble-mode').length), 0, 'Right click must cancel the pending single click.');
+  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'open-quota' || call.name === 'bubble-mode' || call.name === 'show-reply').length), 0, 'Right click must cancel the pending single click.');
   await pet.evaluate(() => { window.__calls.length = 0; });
-  await pet.getByRole('button').click(); await pet.getByRole('button').press('ArrowRight');
+  await pet.locator('.pet-button').click(); await pet.locator('.pet-button').press('ArrowRight');
   await new Promise(resolve => setTimeout(resolve, 380));
-  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'open-quota' || call.name === 'bubble-mode').length), 0, 'Keyboard movement must cancel the pending click.');
+  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'open-quota' || call.name === 'bubble-mode' || call.name === 'show-reply').length), 0, 'Keyboard movement must cancel the pending click.');
+  await pet.evaluate(() => { window.__calls.length = 0; });
+  await pet.locator('.pet-button').click();
+  await pet.getByRole('button', { name: '输入消息', exact: true }).click();
+  await new Promise(resolve => setTimeout(resolve, 380));
+  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'open-composer').length), 1, 'The chat logo must open the one input bubble.');
+  assert.equal(await pet.evaluate(() => window.__calls.filter(call => call.name === 'open-quota' || call.name === 'bubble-mode' || call.name === 'show-reply' || call.name === 'drag').length), 0, 'Clicking the logo must cancel a pending character click without dragging or opening another bubble.');
+  assert.equal(await pet.evaluate(async () => (await window.pet.getState()).quickView), 'compose');
+  await pet.evaluate(skin => window.__patch({ skin, bubbleMode: 'hidden', bubbleOpen: false, quickView: 'chat', motion: 'idle', assistant: { activity: 'idle' } }), bundledSkin);
+  await pet.waitForFunction(() => document.querySelector('.sprite-canvas')?.dataset.ready === 'true' && document.querySelector('.pet-sprite')?.complete);
+  await pet.screenshot({ path: path.join(artifactDir, 'pet-chat-launcher.png'), omitBackground: true });
   assert.deepEqual(errors, [], 'Renderer should have no uncaught exceptions');
-  console.log('Renderer checks passed: ellipse/tail safe layout, quota buckets/cache/pending coexistence, per-model reasoning choices, delayed single/double/triple/drag gestures, quick/panel drafts and approval locks, default/legacy animation clocks, cropping/anchors, Chrome setup, login phases, IME and task scope.');
+  console.log('Renderer checks passed: rounded rectangle/tail safe layout, logo-only input, text-only replies, mutually exclusive bubble views, quota buckets/cache/pending coexistence, per-model reasoning choices, delayed single/double/triple/drag gestures, quick/panel drafts and approval locks, default/legacy animation clocks, cropping/anchors, Chrome setup, login phases, IME and task scope.');
   console.log('Screenshots: ' + artifactDir);
 } finally {
   await browser?.close();

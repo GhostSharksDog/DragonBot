@@ -55,7 +55,7 @@ export function skinFrameLayout(manifest: Pick<SkinManifest, 'width' | 'height'>
 export interface SkinManifest { name: string; width: number; height: number; anchor: { x: number; y: number }; animations: Record<string, SkinAnimation>; rig?: import('./rig').RigDefinition }
 export interface SkinData { manifest: SkinManifest; baseUrl: string }
 export type BubbleMode = 'hidden' | 'quick' | 'panel';
-export type QuickView = 'chat' | 'quota';
+export type QuickView = 'chat' | 'compose' | 'quota';
 export type PanelTab = 'chat' | 'settings' | 'history';
 export interface AppSnapshot { settings: Settings; assistant: AssistantSnapshot; browserSetup?: BrowserSetupSnapshot; bubbleOpen: boolean; bubbleMode?: BubbleMode; quickView?: QuickView; quickShape?: import('./bubble-shape').QuickBubbleShape; panelTab?: PanelTab; skin: SkinData | null; direction: 'left' | 'right'; motion: 'idle' | 'walking' | 'running'; version: string; animationStartedAt?: number; rigPlayback?: import('./rig').RigPlayback }
 export interface AnswerPayload { id: string; answers: Record<string, string[]> }
@@ -77,6 +77,8 @@ export interface PetBridge {
   showContextMenu(): Promise<void>;
   resizeQuickBubble(height: number): Promise<void>;
   openQuota(): Promise<void>;
+  openComposer(): Promise<void>;
+  showReply(): Promise<void>;
   refreshQuota(): Promise<void>;
   drag(dx: number, dy: number): Promise<void>;
   connectBrowser(): Promise<void>;

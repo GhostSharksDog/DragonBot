@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react';
 
-export type IconName = 'close' | 'settings' | 'history' | 'plus' | 'send' | 'stop' | 'chevron' | 'folder' | 'globe' | 'check' | 'spark' | 'refresh' | 'arrow' | 'shield' | 'image' | 'minus' | 'external';
+export type IconName = 'chat' | 'close' | 'settings' | 'history' | 'plus' | 'send' | 'stop' | 'chevron' | 'folder' | 'globe' | 'check' | 'spark' | 'refresh' | 'arrow' | 'shield' | 'image' | 'minus' | 'external';
 const paths: Record<IconName, string> = {
+  chat: 'M6 4h12a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H9l-5 4v-5a3 3 0 0 1-1-2V7a3 3 0 0 1 3-3Z',
   close: 'm6 6 12 12M18 6 6 18', settings: 'm9.5 4 .7-2h3.6l.7 2 2 .9 2.2-.4 1.8 3.1-1.5 1.6v2.4l1.5 1.6-1.8 3.1-2.2-.4-2 .9-.7 2h-3.6l-.7-2-2-.9-2.2.4-1.8-3.1L3.1 12V9.6L1.6 8l1.8-3.1 2.2.4 2-.9Zm-.6 6.9a3.1 3.1 0 1 0 6.2 0 3.1 3.1 0 1 0-6.2 0',
   history: 'M3 10a9 9 0 1 1 2 8M3 4v6h6m3-4v6l4 2', plus: 'M12 5v14M5 12h14', send: 'm4 4 17 8-17 8 3-8-3-8Zm3 8h14', stop: 'M6 6h12v12H6Z', chevron: 'm9 5 7 7-7 7', folder: 'M3 7V5h6l2 2h10v13H3V7Z', globe: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-18 0h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18Z', check: 'm5 12 4 4L19 6', spark: 'm12 3 2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2L12 3Z', refresh: 'M20 10a8 8 0 0 0-14-5L3 8m0-5v5h5m-4 6a8 8 0 0 0 14 5l3-3m0 5v-5h-5', arrow: 'M5 12h14m-6-6 6 6-6 6', shield: 'm12 3 8 3v6c0 5-8 9-8 9S4 17 4 12V6l8-3Zm-4 9 3 3 5-6', image: 'M3 3h18v18H3Zm0 14 6-6 5 5 3-3 4 4M15 7h.01', minus: 'M5 12h14', external: 'M14 3h7v7m0-7L10 14M10 4H4v16h16v-6',
 };

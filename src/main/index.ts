@@ -9,12 +9,13 @@ import { BrowserSetupService } from './browser-setup';
 import { loadSkin, validateSkinImageSize } from './skin';
 import { bubbleBounds, quickBubbleBounds, clampRect, distanceToRect } from './geometry';
 import { advanceHorizontalMotion, createHorizontalMotion, resetHorizontalMotion, ROAMING_TICK_MS } from './horizontal-motion';
-import type { AppSnapshot, Settings, SkinData, ApprovalDecision, AnswerPayload, Activity, BubbleMode, PanelTab } from '../shared/types';
+import type { AppSnapshot, Settings, SkinData, ApprovalDecision, AnswerPayload, Activity, BubbleMode, PanelTab, QuickView } from '../shared/types';
 import { animationFrameAt, animationFrameCount, skinFrameLayout, pointInSpriteOutline } from '../shared/types';
 import { effectiveAnimationKey, roamingAnimationMotion } from '../shared/animation-state';
 import { rigFiles, rigHitTest, sampleRigPose, transitionRigPlayback, validateRigImageSize, type RigPlayback } from '../shared/rig';
 import { QuickOutsideClickMonitor, rawMouseHelperPath, shouldDismissQuickClick } from './quick-outside-click';
 import { createQuickBubbleShape, quickBubbleHit } from '../shared/bubble-shape';
+import { petChatLauncherRect, pointInRoundedRect } from '../shared/pet-chat-launcher';
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'pet-skin', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 if (process.env.DRAGON_PET_DATA_DIR) app.setPath('userData', path.resolve(process.env.DRAGON_PET_DATA_DIR));
@@ -24,7 +25,7 @@ let browserSetup: BrowserSetupService;
 let outsideClickMonitor: QuickOutsideClickMonitor | undefined;
 let bubbleOpen = false, skin: SkinData | null = null, skinRoot = '', direction: 'left' | 'right' = 'right', motion: 'idle' | 'walking' | 'running' = 'idle';
 let bubbleMode: BubbleMode = 'hidden', panelTab: PanelTab = 'chat', quickHeight = 180, userHidden = false, rigPlayback: RigPlayback | undefined;
-let quickView: 'chat' | 'quota' = 'chat', ignoreBubbleMouse = false;
+let quickView: QuickView = 'chat', ignoreBubbleMouse = false, bubbleRevision = 0;
 let roaming = createHorizontalMotion({ x: 0, y: 0 }, performance.now()), draggingUntil = 0, timer: NodeJS.Timeout | undefined;
 let shuttingDown = false, lastStateKey = '', lastActivity: Activity = 'idle', ignoreMouse = false;
 let lastAnimationKey = '', animationStartedAt = Date.now();
@@ -55,6 +56,7 @@ function showBubble(open: boolean, focus = true) {
   showBubbleMode(open ? 'quick' : 'hidden', panelTab, focus);
 }
 function showBubbleMode(mode: BubbleMode, tab: PanelTab = panelTab, focus = true) {
+  bubbleRevision++;
   bubbleMode = mode; panelTab = tab; bubbleOpen = mode !== 'hidden';
   assistant.setQuotaVisible(mode === 'quick' && quickView === 'quota');
   if (ignoreBubbleMouse) { ignoreBubbleMouse = false; bubble.setIgnoreMouseEvents(false); }
@@ -65,6 +67,20 @@ function showBubbleMode(mode: BubbleMode, tab: PanelTab = panelTab, focus = true
 function openQuota() {
   quickView = 'quota'; userHidden = false; pet.showInactive(); showBubbleMode('quick');
   void assistant.refreshQuota().catch(() => {});
+}
+function showReply() {
+  quickView = 'chat'; userHidden = false; pet.showInactive(); showBubbleMode('quick');
+}
+function openComposer() {
+  quickView = 'compose'; userHidden = false; pet.showInactive(); showBubbleMode('quick');
+}
+async function submitFromComposer(operation: () => Promise<void>) {
+  const revision = bubbleRevision;
+  const fromComposer = bubbleMode === 'quick' && quickView === 'compose';
+  await operation(); // Failed sends keep the editor and its draft available.
+  if (fromComposer && revision === bubbleRevision && bubbleMode === 'quick' && quickView === 'compose') {
+    quickView = 'chat'; showBubbleMode('quick', panelTab, false);
+  }
 }
 function pauseRoaming(position = { x: roaming.x, y: roaming.y }, waitMs = 2000) {
   roaming = resetHorizontalMotion(roaming, position, performance.now(), waitMs);
@@ -104,6 +120,7 @@ function animationKey() {
   return effectiveAnimationKey(skin?.manifest, assistant.getSnapshot().activity, motion, direction);
 }
 function spriteHit(x: number, y: number, width: number, height: number): boolean {
+  if (pointInRoundedRect(petChatLauncherRect(width, height), x, y)) return true;
   const placeholderHit = () => {
     const s = width / 200;
     return ((x - width / 2) / (63 * s)) ** 2 + ((y - (height - 8 - 86 * s)) / (78 * s)) ** 2 <= 1;
@@ -193,8 +210,8 @@ function petMenu() {
 }
 function installHandlers() {
   handle('pet:state', () => snapshot());
-  handle('pet:send', async (text: unknown) => { if (typeof text !== 'string' || !text.trim() || text.length > 32000) throw new Error('请输入 1–32000 字的消息。'); await assistant.send(text.trim()); });
-  handle('pet:answer', (payload: AnswerPayload) => { if (!payload || typeof payload.id !== 'string' || !payload.answers || typeof payload.answers !== 'object') throw new Error('回答格式无效。'); return assistant.answer(payload); });
+  handle('pet:send', async (text: unknown) => { if (typeof text !== 'string' || !text.trim() || text.length > 32000) throw new Error('请输入 1–32000 字的消息。'); await submitFromComposer(() => assistant.send(text.trim())); });
+  handle('pet:answer', (payload: AnswerPayload) => { if (!payload || typeof payload.id !== 'string' || !payload.answers || typeof payload.answers !== 'object') throw new Error('回答格式无效。'); return submitFromComposer(() => assistant.answer(payload)); });
   handle('pet:approve', (id: string, decision: ApprovalDecision) => { if (typeof id !== 'string' || !['allow', 'deny', 'stop', 'session'].includes(decision)) throw new Error('批准请求格式无效。'); return assistant.approve(id, decision); });
   handle('pet:stop', () => assistant.stop());
   handle('pet:new-thread', async () => { if (assistant.getSnapshot().activeTurnId) throw new Error('请先停止当前任务。'); settings.update({ grant: { ...settings.value.grant, folders: [] } }); await assistant.newThread(); publish(); });
@@ -225,9 +242,11 @@ function installHandlers() {
     if (mode === 'quick') quickView = 'chat'; showBubbleMode(mode, tab);
   });
   handle('pet:quota-open', openQuota);
+  handle('pet:compose-open', openComposer);
+  handle('pet:reply-show', showReply);
   handle('pet:quota-refresh', () => assistant.refreshQuota());
   handle('pet:context-menu', () => { petMenu().popup({ window: pet }); });
-  handle('pet:quick-height', (height: number) => { if (bubbleMode !== 'quick' || !Number.isFinite(height)) return; const next = Math.max(180, Math.min(360, Math.ceil(height))); if (quickHeight !== next) { quickHeight = next; positionBubble(); publish(); } });
+  handle('pet:quick-height', (height: number) => { if (bubbleMode !== 'quick' || !Number.isFinite(height)) return; const next = Math.max(88, Math.min(360, Math.ceil(height))); if (quickHeight !== next) { quickHeight = next; positionBubble(); publish(); } });
   handle('pet:drag', (dx: number, dy: number) => {
     if (![dx, dy].every(Number.isFinite) || Math.abs(dx) > 2000 || Math.abs(dy) > 2000) return;
     draggingUntil = performance.now() + 500;
@@ -305,8 +324,8 @@ async function main() {
   installHandlers();
   assistant.on('change', () => {
     const activity = assistant.getSnapshot().activity;
-    if (!userHidden && pet.isVisible() && bubbleMode !== 'panel' && activity !== lastActivity && ['awaiting-input', 'awaiting-approval', 'error'].includes(activity)) {
-      if (bubbleMode === 'hidden') quickView = 'chat';
+    if (!userHidden && pet.isVisible() && bubbleMode === 'hidden' && activity !== lastActivity && ['awaiting-input', 'awaiting-approval', 'error'].includes(activity)) {
+      quickView = 'chat';
       showBubbleMode('quick', panelTab, false);
     }
     lastActivity = activity; publish();

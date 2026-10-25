@@ -10,6 +10,7 @@ const bridge: PetBridge = {
   setBubble: open => invoke('pet:bubble', open), drag: (dx, dy) => invoke('pet:drag', dx, dy),
   setBubbleMode: (mode, tab) => invoke('pet:bubble-mode', mode, tab), showContextMenu: () => invoke('pet:context-menu'), resizeQuickBubble: height => invoke('pet:quick-height', height),
   openQuota: () => invoke('pet:quota-open'), refreshQuota: () => invoke('pet:quota-refresh'),
+  openComposer: () => invoke('pet:compose-open'), showReply: () => invoke('pet:reply-show'),
   connectBrowser: () => invoke('pet:connect-browser'), reconnect: () => invoke('pet:reconnect'), login: () => invoke('pet:login'), openExternal: url => invoke('pet:external', url),
   detectBrowser: () => invoke('pet:browser-detect'), selectBrowserProfile: id => invoke('pet:browser-profile', id), installBrowserExtension: () => invoke('pet:browser-install'),
   cancelLogin: () => invoke('pet:cancel-login'),
