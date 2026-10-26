@@ -15,7 +15,9 @@ try {
  let pet,bubble;const deadline=Date.now()+20000;
  while((!pet||!bubble)&&Date.now()<deadline){pet=app.windows().find(w=>w.url().includes('view=pet'));bubble=app.windows().find(w=>w.url().includes('view=bubble'));await new Promise(r=>setTimeout(r,50));}
  assert(pet&&bubble);for(const p of [pet,bubble])p.on('pageerror',e=>result.errors.push(e.message));
- await pet.waitForFunction(async()=>{if(!window.pet)return false;const a=(await window.pet.getState()).assistant;return a.connected&&a.connection==='ready'&&a.models.length>0;},{},{timeout:60000});
+ let connected=false;
+ for(let i=0;i<300;i++){const a=await pet.evaluate(async()=>window.pet?(await window.pet.getState()).assistant:null);if(a?.connected&&a.connection==='ready'&&a.models.length>0){connected=true;break;}await new Promise(r=>setTimeout(r,200));}
+ assert(connected,'Codex startup and model discovery must finish before measuring layout.');
  await bubble.evaluate(()=>document.fonts.ready.then(()=>undefined));
  const native=()=>app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('view=bubble'));return {visible:w.isVisible(),...w.getBounds()};});
  const settle=async()=>{let prev='';let stable=0;for(let i=0;i<50;i++){await new Promise(r=>setTimeout(r,60));const v=await native();const key=JSON.stringify(v);stable=key===prev?stable+1:0;prev=key;if(v.visible&&stable>=3)return v;}throw Error('Native layout did not settle.');};

@@ -4,6 +4,7 @@ import { skinFrameLayout, skinRegionClipPath } from '../shared/types';
 import { Egg, Icon, type IconName } from './icons';
 import { activityLabels, Pet } from './Pet';
 import { QuickBubble, QuickBubbleFrame } from './QuickBubble';
+import { ChatActions, SendModePicker } from './ChatControls';
 import { QuotaBubble } from './QuotaBubble';
 import { ProjectSettings } from './ProjectSettings';
 import { RigCanvas } from './RigCanvas';
@@ -59,7 +60,16 @@ function SkinThumbnail({ skin, className = '' }: { skin: SkinData | null; classN
 
 function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
   const [tab, setTab] = useState<'chat' | 'settings' | 'history'>('chat');
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(() => localStorage.getItem('chat-draft') || '');
+  useEffect(() => { localStorage.setItem('chat-draft',draft); }, [draft]);
+  useEffect(() => {
+    try {
+      const pending=JSON.parse(localStorage.getItem('chat-pending-draft')||'null');
+      if(pending&&snapshot.chat?.messages.some(m=>m.role==='user'&&m.text===pending.text&&m.createdAt>=pending.time-1000)){
+        setDraft(current=>current.trim()===pending.text?'':current);localStorage.removeItem('chat-pending-draft');
+      }
+    }catch{localStorage.removeItem('chat-pending-draft');}
+  }, [snapshot.chat?.messages]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [done, setDone] = useState<Set<string>>(new Set());
@@ -78,7 +88,12 @@ function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
   const lastChatElement = useRef<HTMLDivElement | null>(null);
   const { assistant, settings } = snapshot;
   const mode = snapshot.bubbleMode ?? 'panel';
-  const active = Boolean(assistant.activeTurnId);
+  const chatCurrent=Boolean(snapshot.chat && snapshot.foreground==='chat');
+  const messages=chatCurrent?snapshot.chat!.messages:assistant.messages;
+  const active = chatCurrent?Boolean(snapshot.chat?.active):Boolean(assistant.activeTurnId);
+  const canSend=Boolean(snapshot.chat)||assistant.connected;
+  const channelError=chatCurrent?snapshot.chat?.error:assistant.error;
+  const modePicker=snapshot.chat?<SendModePicker value={settings.chat?.mode??'auto'} disabled={busy.has('send')||snapshot.chat.active} change={mode=>{void update({chat:{model:settings.chat?.model??'',effort:'high',mode}});}}/>:null;
   const codexConnecting = busy.has('reconnect') || busy.has('login') || ['connecting', 'reconnecting'].includes(assistant.connection ?? '') || ['checking', 'opening-browser', 'waiting-browser'].includes(assistant.login ?? '');
 
   const perform = useCallback(async (key: string, operation: () => Promise<unknown>) => {
@@ -109,9 +124,9 @@ function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
       const card = element.querySelector<HTMLElement>('.interaction-card');
       if (card) element.scrollTo({ top: card.offsetTop - element.offsetTop - 12, behavior: 'instant' });
     } else if (nearBottom.current && !assistant.pending.length) {
-      element.scrollTo({ top: assistant.messages.length ? element.scrollHeight : 0, behavior: 'instant' });
+      element.scrollTo({ top: messages.length ? element.scrollHeight : 0, behavior: 'instant' });
     }
-  }, [assistant.messages, assistant.pending, tab]);
+  }, [messages, assistant.pending, tab]);
   useEffect(() => { if (mode === 'panel') setTab(snapshot.panelTab ?? 'chat'); }, [mode, snapshot.panelTab]);
   useEffect(() => { composing.current = false; }, [mode, snapshot.quickView]);
   useEffect(() => {
@@ -122,10 +137,10 @@ function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
     input.style.height = `${Math.min(108, input.scrollHeight)}px`;
   }, [draft, mode]);
 
-  const assistantReply = [...assistant.messages].reverse().find(message => message.role === 'assistant') ?? null;
+  const assistantReply = [...messages].reverse().find(message => message.role === 'assistant') ?? null;
   const handoff = snapshot.projectHandoff;
   const lastMessageAt = [...assistant.messages].reverse().find(message => message.role === 'user')?.createdAt ?? 0;
-  const reply = handoff?.message && !active && (handoff.startedAt ?? handoff.updatedAt) >= lastMessageAt
+  const reply = !chatCurrent && handoff?.message && !active && (handoff.startedAt ?? handoff.updatedAt) >= lastMessageAt
     ? { id: handoff.id, role: 'assistant' as const, text: handoff.message, createdAt: handoff.updatedAt }
     : assistantReply;
   useEffect(() => { setExpandedReply(false); }, [reply?.id]);
@@ -140,9 +155,10 @@ function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
 
   async function send() {
     const text = draft.trim();
-    if (!text || !latest.current.assistant.connected || pendingActions.current.has('send')) return;
-    const succeeded = await perform('send', () => window.pet.send(text));
-    if (succeeded) { setDraft(current => current.trim() === text ? '' : current); nearBottom.current = true; }
+    if (!text || !(latest.current.chat || latest.current.assistant.connected) || pendingActions.current.has('send')) return;
+    if(snapshot.chat)localStorage.setItem('chat-pending-draft',JSON.stringify({text,time:Date.now()}));
+    const succeeded = await perform('send', () => window.pet.send(text, settings.chat?.mode));
+    if (succeeded) { setDraft(current => current.trim() === text ? '' : current); nearBottom.current = true;localStorage.removeItem('chat-pending-draft'); }
   }
   async function respond(id: string, operation: () => Promise<void>) {
     if (resolved.current.has(id) || !latest.current.assistant.pending.some(item => item.id === id)) return false;
@@ -152,7 +168,7 @@ function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
   }
   const openExternal = (url: string) => { void perform('external', () => window.pet.openExternal(url)); };
   const connectionStatus = assistant.login === 'waiting-browser' ? '等待你在浏览器中完成登录' : assistant.login === 'opening-browser' ? '正在打开登录页面' : assistant.login === 'checking' ? '正在检查登录状态' : '正在连接 Codex';
-  const status = assistant.pending.length ? (assistant.pending[0].kind === 'approval' ? '有一件事，需要你批准' : '我想再确认一下') : codexConnecting ? connectionStatus : assistant.connected ? activityLabels[assistant.activity] : '还没连接到 Codex';
+  const status = chatCurrent&&!assistant.pending.length ? snapshot.chat!.message : assistant.pending.length ? (assistant.pending[0].kind === 'approval' ? '有一件事，需要你批准' : '我想再确认一下') : codexConnecting ? connectionStatus : assistant.connected ? activityLabels[assistant.activity] : '还没连接到 Codex';
   const footerStatus = active ? '任务进行中 · 可以继续补充要求' : 'Enter 发送 · Shift + Enter 换行';
   const chooseTab = (next: 'chat' | 'settings' | 'history') => { setTab(next); void window.pet.setBubbleMode('panel', next).catch(reason => setError(errorText(reason))); };
   const interaction = (request: PendingInteraction, compact: boolean) => <Interaction key={request.id} request={request} compact={compact} draft={questionDrafts[request.id] ?? { values: {}, custom: {}, step: 0 }} onDraft={next => setQuestionDrafts(current => ({ ...current, [request.id]: next }))} locked={busy.has(`request:${request.id}`) || done.has(request.id)} onApprove={decision => respond(request.id, () => window.pet.approve(request.id, decision))} onAnswer={answers => respond(request.id, () => window.pet.answer({ id: request.id, answers }))} />;
@@ -170,7 +186,7 @@ function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
     const question = pending?.kind === 'question' ? pending.questions[questionStep] : null;
     if (pending?.kind === 'question' && snapshot.quickView !== 'compose') return <QuestionBubbles snapshot={snapshot} request={pending} draft={questionDrafts[pending.id] ?? { values: {}, custom: {}, step: 0 }} onDraft={next => setQuestionDrafts(current => ({ ...current, [pending.id]: next }))} locked={busy.has(`request:${pending.id}`) || done.has(pending.id)} answer={answers => respond(pending.id, () => window.pet.answer({ id: pending.id, answers }))} />;
     const questionPrompt = question ? <div className="quick-question-prompt"><p className="quick-reply-text">{question.question}</p><p className="quick-status">点击旁边的聊天图标回答。{pending?.kind === 'question' && pending.questions.length > 1 ? `（${questionStep + 1}/${pending.questions.length}）` : ''}</p></div> : null;
-    return <QuickBubble layout={snapshot.quickLayout} shape={snapshot.quickShape} compose={snapshot.quickView === 'compose'} draft={draft} setDraft={setDraft} inputRef={composer} reply={reply} expanded={expandedReply} setExpanded={setExpandedReply} interaction={pending ? interaction(pending, true) : null} questionPrompt={questionPrompt} interactionCount={assistant.pending.length} approval={pending?.kind === 'approval'} connected={assistant.connected} active={active} thinking={active && assistant.activity === 'thinking'} sending={busy.has('send')} error={error || assistant.error} status={status} send={send} close={() => { void perform('collapse', () => window.pet.setBubbleMode('hidden')); }} />;
+    return <QuickBubble layout={snapshot.quickLayout} shape={snapshot.quickShape} compose={snapshot.quickView === 'compose'} draft={draft} setDraft={setDraft} inputRef={composer} reply={reply} expanded={expandedReply} setExpanded={setExpandedReply} interaction={pending ? interaction(pending, true) : null} questionPrompt={questionPrompt} interactionCount={assistant.pending.length} approval={pending?.kind === 'approval'} connected={canSend} active={active} thinking={active && (chatCurrent ? snapshot.chat?.status !== 'streaming' || messages.at(-1)?.role !== 'assistant' : assistant.activity === 'thinking')} sending={busy.has('send') || Boolean(snapshot.chat?.active)} modePicker={modePicker} chatActions={chatCurrent?<ChatActions snapshot={snapshot} compact perform={perform}/>:undefined} error={error || channelError || null} status={status} send={send} close={() => { void perform('collapse', () => window.pet.setBubbleMode('hidden')); }} />;
   }
 
   return <main className="bubble-shell">
@@ -183,16 +199,16 @@ function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
       <button className={tab === 'chat' ? 'active' : ''} onClick={() => chooseTab('chat')}>聊一聊{assistant.pending.length > 0 && <span className="count">{assistant.pending.length}</span>}</button>
       <button className={tab === 'history' ? 'active' : ''} onClick={() => chooseTab('history')}>过去的对话</button>
       <div className="nav-spacer" />
-      <IconButton icon="plus" title="开始新对话" disabled={active || busy.has('new')} onClick={() => { void perform('new', () => window.pet.newThread()).then(ok => { if (ok) { chooseTab('chat'); setDraft(''); } }); }} />
+      <IconButton icon="plus" title="开始新对话" disabled={active || busy.has('new')} onClick={() => { void perform('new', () => chatCurrent ? window.pet.newChat() : window.pet.newThread()).then(ok => { if (ok) { chooseTab('chat'); setDraft(''); } }); }} />
       <IconButton icon="settings" title="桌宠与任务设置" active={tab === 'settings'} onClick={() => chooseTab(tab === 'settings' ? 'chat' : 'settings')} />
     </nav>
 
-    {(error || assistant.error) && <div className="error-banner" role="alert"><span>{error || assistant.error}</span>{error && <button aria-label="关闭错误提示" onClick={() => setError(null)}><Icon name="close" size={14} /></button>}</div>}
+    {(error || channelError) && <div className="error-banner" role="alert"><span>{error || channelError}</span>{error && <button aria-label="关闭错误提示" onClick={() => setError(null)}><Icon name="close" size={14} /></button>}</div>}
 
     {tab === 'chat' && <>
-      {!assistant.connected && <div className="connection-banner"><div><strong>{codexConnecting ? connectionStatus : '连接你的 Codex'}</strong><span>{assistant.login === 'waiting-browser' ? '完成登录后，我会在这里继续。' : '使用这台电脑上的账号继续。'}</span></div><button className="button small" disabled={codexConnecting} onClick={() => { void perform('reconnect', () => window.pet.reconnect()); }}>{assistant.connection === 'connecting' || assistant.connection === 'reconnecting' || busy.has('reconnect') ? '正在连接…' : '重新连接'}</button>{assistant.login === 'waiting-browser' ? <button className="text-button" disabled={busy.has('cancel-login')} onClick={() => { void perform('cancel-login', () => window.pet.cancelLogin()); }}>{busy.has('cancel-login') ? '正在取消…' : '取消登录'}</button> : <button className="text-button" disabled={codexConnecting} onClick={() => { void perform('login', () => window.pet.login()); }}>登录</button>}</div>}
+      {!chatCurrent && !assistant.connected && <div className="connection-banner"><div><strong>{codexConnecting ? connectionStatus : '连接你的 Codex'}</strong><span>{assistant.login === 'waiting-browser' ? '完成登录后，我会在这里继续。' : '使用这台电脑上的账号继续。'}</span></div><button className="button small" disabled={codexConnecting} onClick={() => { void perform('reconnect', () => window.pet.reconnect()); }}>{assistant.connection === 'connecting' || assistant.connection === 'reconnecting' || busy.has('reconnect') ? '正在连接…' : '重新连接'}</button>{assistant.login === 'waiting-browser' ? <button className="text-button" disabled={busy.has('cancel-login')} onClick={() => { void perform('cancel-login', () => window.pet.cancelLogin()); }}>{busy.has('cancel-login') ? '正在取消…' : '取消登录'}</button> : <button className="text-button" disabled={codexConnecting} onClick={() => { void perform('login', () => window.pet.login()); }}>登录</button>}</div>}
       <div className="chat-scroll" ref={chatScroll} onScroll={event => { const element = event.currentTarget; nearBottom.current = element.scrollHeight - element.clientHeight - element.scrollTop < 72; }}>
-        {!assistant.messages.length && <div className={`welcome${snapshot.skin ? ' has-skin' : ''}`}>
+        {!messages.length && <div className={`welcome${snapshot.skin ? ' has-skin' : ''}`}>
           <div className={`welcome-orbit${snapshot.skin ? ' is-character' : ''}`}><SkinThumbnail skin={snapshot.skin} className="welcome-character" /><span className="orbit-dot" /></div>
           <span className="eyebrow">你的桌面小搭档</span>
           <h2>有事，叫我一声。</h2>
@@ -201,7 +217,7 @@ function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
           {!snapshot.skin && <div className="art-notice"><Icon name="image" size={16} /><span><strong>尚未载入角色动画</strong>现在由临时龙蛋陪你。可在设置里导入可用的角色素材。</span></div>}
         </div>}
         <div className="message-list" aria-live="polite" aria-relevant="additions text">
-          {assistant.messages.map(message => <article className={`message ${message.role}`} key={message.id}><div className="message-byline">{message.role === 'assistant' ? <><Icon name="spark" size={12} /> 龙娘</> : message.role === 'user' ? '你' : '任务提示'}<time dateTime={new Date(message.createdAt).toISOString()}>{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</time></div><MessageBody text={message.text} openExternal={openExternal} /></article>)}
+          {messages.map(message => <article className={`message ${message.role}`} key={message.id}><div className="message-byline">{message.role === 'assistant' ? <><Icon name="spark" size={12} /> 龙娘 · {message.channel==='chat'?'Chat':'Codex'}</> : message.role === 'user' ? '你' : '任务提示'}<time dateTime={new Date(message.createdAt).toISOString()}>{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</time></div><MessageBody text={message.text} openExternal={openExternal} /></article>)}
           {active && assistant.activity === 'thinking' && <div className="thinking"><span><i /><i /><i /></span>正在想办法</div>}
         </div>
         {assistant.pending.map(request => interaction(request, false))}
@@ -211,12 +227,13 @@ function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
         <div className="composer"><textarea ref={composer} value={draft} rows={2} aria-label="对龙娘说点什么" placeholder={active ? '还想补充什么？' : '对龙娘说点什么，或交给我一件事…'} maxLength={50000} onChange={event => setDraft(event.target.value)} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
           if (event.key === 'Enter' && !event.shiftKey && !composing.current && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); void send(); }
         }} />
-          <div className="composer-bottom"><span>{active ? '正在做事' : '随时听你说'}<i /></span><div>{active && <button className="stop-button" disabled={busy.has('stop')} onClick={() => { void perform('stop', () => window.pet.stop()); }}><Icon name="stop" size={12} />停止</button>}<button className="send-button" disabled={!draft.trim() || !assistant.connected || busy.has('send')} title={active ? '补充任务要求' : '发送消息'} aria-label={active ? '补充任务要求' : '发送消息'} onClick={() => { void send(); }}><Icon name="arrow" size={19} /></button></div></div>
+          <div className="composer-bottom">{modePicker}<span>{active ? '正在做事' : '随时听你说'}<i /></span><div>{active && <button className="stop-button" disabled={busy.has('stop')} onClick={() => { void perform('stop', () => window.pet.stop()); }}><Icon name="stop" size={12} />停止</button>}<button className="send-button" disabled={!draft.trim() || !canSend || busy.has('send') || Boolean(snapshot.chat?.active)} title={active ? '补充任务要求' : '发送消息'} aria-label={active ? '补充任务要求' : '发送消息'} onClick={() => { void send(); }}><Icon name="arrow" size={19} /></button></div></div>
         </div><p className="composer-hint">{footerStatus}</p>
       </div>
     </>}
+    {tab === 'chat' && chatCurrent && <ChatActions snapshot={snapshot} perform={perform}/>}
     {tab === 'settings' && <SettingsView snapshot={snapshot} busy={busy} update={update} perform={perform} openExternal={openExternal} />}
-    {tab === 'history' && <section className="settings-scroll history-view"><div className="section-heading"><span className="eyebrow">留在本机的记忆</span><h2>过去的对话</h2><p>选择一段对话，接着聊下去。</p></div>{assistant.threads.length ? <div className="thread-list">{assistant.threads.map(thread => <button key={thread.id} disabled={active || busy.has('resume') || thread.id === assistant.threadId} className={thread.id === assistant.threadId ? 'current' : ''} onClick={() => { void perform('resume', () => window.pet.resumeThread(thread.id)).then(ok => { if (ok) { chooseTab('chat'); nearBottom.current = true; } }); }}><div><strong>{thread.title || '新的对话'}</strong><span>{new Date(thread.updatedAt).toLocaleString('zh-CN', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>{thread.id === assistant.threadId ? <span className="current-label">当前</span> : <Icon name="chevron" size={15} />}</button>)}</div> : <div className="empty-history"><Icon name="history" size={30} /><p>第一段故事，从现在开始。</p></div>}{active && <p className="field-hint">等当前任务结束后，就可以切换对话。</p>}</section>}
+    {tab === 'history' && <section className="settings-scroll history-view"><div className="section-heading"><span className="eyebrow">留在本机的记忆</span><h2>过去的对话</h2><p>选择一段对话，接着聊下去。</p></div>{snapshot.chat?.conversations.length ? <div className="thread-list">{snapshot.chat.conversations.map(thread=><button key={thread.id} disabled={active||busy.has('resume')} onClick={()=>{void perform('resume',()=>window.pet.resumeChat(thread.id)).then(ok=>{if(ok)chooseTab('chat');});}}><div><strong>Chat · {thread.title}</strong><span>{new Date(thread.updatedAt).toLocaleString('zh-CN')}</span></div></button>)}</div>:null}{assistant.threads.length ? <div className="thread-list">{assistant.threads.map(thread => <button key={thread.id} disabled={active || busy.has('resume') || thread.id === assistant.threadId} className={thread.id === assistant.threadId ? 'current' : ''} onClick={() => { void perform('resume', () => window.pet.resumeThread(thread.id)).then(ok => { if (ok) { chooseTab('chat'); nearBottom.current = true; } }); }}><div><strong>{thread.title || '新的对话'}</strong><span>{new Date(thread.updatedAt).toLocaleString('zh-CN', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>{thread.id === assistant.threadId ? <span className="current-label">当前</span> : <Icon name="chevron" size={15} />}</button>)}</div> : <div className="empty-history"><Icon name="history" size={30} /><p>第一段故事，从现在开始。</p></div>}{active && <p className="field-hint">等当前任务结束后，就可以切换对话。</p>}</section>}
     <footer className="app-footer"><span><i />{assistant.account || '本地桌宠'} · 记录保存在本机</span><span>v{snapshot.version}</span></footer>
   </main>;
 }
@@ -307,6 +324,7 @@ function SettingsView({ snapshot, busy, update, perform, openExternal }: { snaps
     <section className="setting-section"><div className="setting-title"><Icon name="shield" size={17} /><h3>任务可以去哪里</h3><span>网站长期保存</span></div><p className="field-hint">文件夹按当前任务授权；网站与网页输入设置保存在本机，重启后仍有效。删除、覆盖和重要提交会再问你。</p>{active && <p className="scope-locked">当前任务进行中，结束后可调整范围。</p>}<div className="field-heading">文件夹<button className="text-button" disabled={scopeDisabled || busy.has('folder')} onClick={() => { void addFolder(); }}><Icon name="plus" size={13} />添加</button></div>{settings.grant.folders.length ? <ul className="scope-list">{settings.grant.folders.map(folder => <li key={folder}><Icon name="folder" size={14} /><span title={folder}>{folder}</span><button aria-label={`移除文件夹 ${folder}`} disabled={scopeDisabled} onClick={() => { void update({ grant: { ...settings.grant, folders: settings.grant.folders.filter(value => value !== folder) } }); }}><Icon name="close" size={13} /></button></li>)}</ul> : <p className="scope-empty">暂未开放文件夹</p>}<div className="field-heading">网站</div><ul className="scope-list">{settings.grant.origins.map(site => <li key={site}><Icon name="globe" size={14} /><span>{site}</span><button aria-label={`移除网站 ${site}`} disabled={scopeDisabled} onClick={() => { void update({ grant: { ...settings.grant, origins: settings.grant.origins.filter(value => value !== site) } }); }}><Icon name="close" size={13} /></button></li>)}</ul><div className="origin-entry"><input className="field-input" aria-label="允许访问的网站地址" value={origin} disabled={scopeDisabled} placeholder="https://example.com" onChange={event => { setOrigin(event.target.value); setOriginError(''); }} onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void addOrigin(); } }} /><button className="button small" disabled={scopeDisabled || !origin.trim()} onClick={() => { void addOrigin(); }}>添加</button></div>{originError && <p className="input-error" role="alert">{originError}</p>}</section>
     <ProjectSettings snapshot={snapshot} disabled={scopeDisabled} update={update} perform={perform} />
     <ChromeSetup snapshot={snapshot} busy={busy} scopeDisabled={scopeDisabled} update={update} perform={perform} openExternal={openExternal} />
+    {snapshot.chat && <section className="setting-section"><div className="setting-title"><Icon name="spark" size={17}/><h3>普通 Chat 聊天</h3><span>High</span></div><p className="field-hint">复用 ChatGPT 会员登录；普通聊天与做事分别保存。登录窗口由你手动关闭，之后检查连接。</p><label className="field-heading" htmlFor="chat-model">Chat 模型</label><select id="chat-model" className="field-input" value={settings.chat?.model??''} disabled={snapshot.chat.active||busy.has('settings')} onChange={e=>{void update({chat:{mode:settings.chat?.mode??'auto',model:e.target.value,effort:'high'}});}}><option value="">沿用网页选择</option>{[...new Set([...(snapshot.chat.models??[]),settings.chat?.model].filter((v):v is string=>Boolean(v)))].map(model=><option key={model} value={model}>{model}</option>)}</select><p className="field-hint">发送前核对普通“聊天”和 High。不可用时保留草稿，不会转到 Codex。实际额度以账号页面为准。</p><ChatActions snapshot={snapshot} perform={perform}/><button className="button small" disabled={snapshot.chat.active} onClick={()=>{void perform('chat:new',()=>window.pet.newChat());}}>新聊天</button></section>}
     <CodexSettings snapshot={snapshot} busy={busy} update={update} perform={perform} />
   </section>;
 }

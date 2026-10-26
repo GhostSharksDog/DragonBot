@@ -326,6 +326,13 @@ select.field-input { min-height: 34px; }
 .quick-composer textarea:focus-visible { outline: 0; }
 .quick-composer textarea::placeholder { color: #b2a3bb; }
 .quick-composer .send-button { width: 27px; height: 27px; flex: 0 0 27px; border-radius: 8px; background: #9c83b0; border-color: #967dac; box-shadow: none; }
+.chat-mode-picker { max-width: 68px; height: 27px; border: 1px solid #dfd3e7; border-radius: 8px; padding: 2px 4px; color: #756180; background: #fcf9ff; font: inherit; font-size: 11px; }
+.chat-mode-picker:focus-visible { outline: 2px solid #ac91bd; outline-offset: -3px; }
+.chat-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 16px; }
+.chat-actions .field-hint { flex-basis: 100%; }
+.chat-actions.compact { padding: 5px 0 0; gap: 4px 10px; }
+.chat-actions.compact:empty { display: none; }
+.chat-actions.compact .text-button { font-size: 11px; }
 .quick-stop { font-size: 9px; margin: 5px 1px 0 auto; color: #a08a79; }
 .quick-queue { font-size: 10px; color: #97839f; line-height: 1.6; margin: 0 0 7px; }
 .quick-shell .interaction-card { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }

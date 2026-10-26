@@ -4,7 +4,8 @@ const invoke = (channel: string, ...args: unknown[]) => ipcRenderer.invoke(chann
 const bridge: PetBridge = {
   getState: () => invoke('pet:state'),
   onState: listener => { const handler = (_: unknown, state: AppSnapshot) => listener(state); ipcRenderer.on('pet:state-change', handler); return () => ipcRenderer.removeListener('pet:state-change', handler); },
-  send: text => invoke('pet:send', text), answer: payload => invoke('pet:answer', payload), approve: (id, decision) => invoke('pet:approve', id, decision),
+  send: (text,mode) => invoke('pet:send', text,mode), answer: payload => invoke('pet:answer', payload), approve: (id, decision) => invoke('pet:approve', id, decision),
+  connectChat:()=>invoke('pet:chat-connect'), checkChat:()=>invoke('pet:chat-check'), showChat:()=>invoke('pet:chat-show'), loginChat:()=>invoke('pet:chat-login'), stopChat:()=>invoke('pet:chat-stop'), newChat:()=>invoke('pet:chat-new'), resumeChat:id=>invoke('pet:chat-resume',id), confirmChatNotSent:()=>invoke('pet:chat-not-sent'),
   stop: () => invoke('pet:stop'), newThread: () => invoke('pet:new-thread'), resumeThread: id => invoke('pet:resume-thread', id),
   updateSettings: patch => invoke('pet:settings', patch), chooseFolder: () => invoke('pet:choose-folder'), importSkin: () => invoke('pet:import-skin'),
   setBubble: open => invoke('pet:bubble', open), drag: (dx, dy) => invoke('pet:drag', dx, dy),

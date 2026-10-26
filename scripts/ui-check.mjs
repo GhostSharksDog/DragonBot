@@ -765,6 +765,20 @@ try {
   await pet.evaluate(skin => window.__patch({ skin, bubbleMode: 'hidden', bubbleOpen: false, quickView: 'chat', motion: 'idle', assistant: { activity: 'idle' } }), bundledSkin);
   await pet.waitForFunction(() => document.querySelector('.sprite-canvas')?.dataset.ready === 'true' && document.querySelector('.pet-sprite')?.complete);
   await pet.screenshot({ path: path.join(artifactDir, 'pet-chat-launcher.png'), omitBackground: true });
+  // Ordinary Chat works even if Codex is disconnected; its compact controls keep the same input geometry.
+  await page.setViewportSize({width:320,height:88});
+  await page.evaluate(()=>{
+    window.__calls.length=0;
+    window.__patch({foreground:'chat',bubbleMode:'quick',quickView:'compose',settings:{chat:{mode:'auto',model:'GPT-test',effort:'high'}},assistant:{connected:false,pending:[],activeTurnId:null,error:null},chat:{status:'ready',message:'普通 Chat · High',model:'GPT-test',effort:'high',active:false,error:null,conversationId:'chat-test',messages:[{id:'chat-reply',role:'assistant',channel:'chat',text:'我在，慢慢说。',createdAt:Date.now()}],conversations:[]}});
+  });
+  await page.locator('.quick-composer textarea').fill('你好');
+  assert.equal(await page.getByRole('button',{name:'发送消息',exact:true}).isEnabled(),true);
+  await page.getByRole('combobox',{name:'消息通道'}).selectOption('chat');
+  assert.equal(await page.evaluate(async()=> (await window.pet.getState()).settings.chat.mode),'chat');
+  await page.screenshot({path:path.join(artifactDir,'chat-070-input.png'),omitBackground:true});
+  await page.evaluate(()=>window.pet.showReply());await page.getByText('我在，慢慢说。',{exact:true}).waitFor();
+  assert.equal(await page.locator('.quick-shell textarea').count(),0);
+  await page.screenshot({path:path.join(artifactDir,'chat-070-reply.png'),omitBackground:true});
   assert.deepEqual(errors, [], 'Renderer should have no uncaught exceptions');
   console.log('Renderer checks passed: rounded rectangle/tail safe layout, logo-only input, text-only replies, mutually exclusive bubble views, quota buckets/cache/pending coexistence, per-model reasoning choices, delayed single/double/triple/drag gestures, quick/panel drafts and approval locks, default/legacy animation clocks, cropping/anchors, Chrome setup, login phases, IME and task scope.');
   console.log('Screenshots: ' + artifactDir);

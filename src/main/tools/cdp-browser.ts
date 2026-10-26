@@ -77,10 +77,13 @@ export class OwnedChromeClient implements BrowserClient {
   private links = new Map<string, string>();
   constructor(private cdp: CdpConnection) { cdp.onclose = () => this.onclose?.(); }
   async initialize() {
-    const { targetInfos } = await this.cdp.request('Target.getTargets');
-    const target = targetInfos.find((item: any) => item.type === 'page' && /^https?:|^about:blank$/.test(item.url));
+    let { targetInfos } = await this.cdp.request('Target.getTargets');
+    for(let i=0;i<80&&!targetInfos.some((item:any)=>item.type==='page');i++){await new Promise(resolve=>setTimeout(resolve,100));({targetInfos}=await this.cdp.request('Target.getTargets'));}
+    const target = targetInfos.find((item: any) => item.type === 'page' && /^https?:|^about:blank$/.test(item.url))??targetInfos.find((item:any)=>item.type==='page'&&item.url==='chrome://newtab/');
     this.target = target?.targetId ?? (await this.cdp.request('Target.createTarget', { url: 'about:blank' })).targetId;
     await this.attach();
+    if(target?.url==='chrome://newtab/')await this.cdp.request('Page.navigate',{url:'about:blank'},this.session);
+    for(const empty of targetInfos.filter((item:any)=>item.type==='page'&&item.targetId!==this.target&&['about:blank','chrome://newtab/'].includes(item.url)))await this.cdp.request('Target.closeTarget',{targetId:empty.targetId});
   }
   private async attach() {
     this.session = (await this.cdp.request('Target.attachToTarget', { targetId: this.target, flatten: true })).sessionId;
@@ -159,13 +162,20 @@ export class OwnedChromeClient implements BrowserClient {
   close() { return this.cdp.close(); }
 }
 
-export async function connectOwnedChrome(config: BrowserConnectionConfig): Promise<OwnedChromeClient> {
+export async function launchOwnedChrome(config: BrowserConnectionConfig, initialUrl = 'about:blank'): Promise<CdpConnection> {
   if (!path.isAbsolute(config.executablePath) || !path.isAbsolute(config.userDataDir) || config.profileDirectory !== 'Default') throw new Error('独立 Chrome 配置无效。');
   await mkdir(config.userDataDir, { recursive: true });
   const profile = await realpath(config.userDataDir);
   if (!profile.toLowerCase().endsWith(`${path.sep}browser-profile`)) throw new Error('仅允许使用桌宠自己的浏览器目录。');
-  const child = spawn(config.executablePath, [`--user-data-dir=${profile}`, '--profile-directory=Default', '--remote-debugging-pipe', '--no-first-run', '--no-default-browser-check', '--disable-backgrounding-occluded-windows', 'about:blank'], { windowsHide: false, stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
+  if(initialUrl!=='about:blank'&&!/^https:\/\/chatgpt\.com\/(?:c\/[a-zA-Z0-9-]+)?\/?$/.test(initialUrl))throw Error('浏览器初始页面无效。');
+  const startup=['--restore-last-session'];
+  const child = spawn(config.executablePath, [`--user-data-dir=${profile}`, '--profile-directory=Default', '--remote-debugging-pipe', '--no-first-run', '--no-default-browser-check', '--disable-backgrounding-occluded-windows', ...startup], { windowsHide: false, stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
   const cdp = new CdpConnection(child, child.stdio[3] as Writable, child.stdio[4] as Readable);
+  return cdp;
+}
+
+export async function connectOwnedChrome(config: BrowserConnectionConfig): Promise<OwnedChromeClient> {
+  const cdp = await launchOwnedChrome(config);
   const client = new OwnedChromeClient(cdp);
   try { await client.initialize(); return client; } catch (error) { await cdp.close(); throw error; }
 }

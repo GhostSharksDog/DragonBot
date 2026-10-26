@@ -1,14 +1,15 @@
+import type { ChatSettings, ChatSnapshot, SendMode } from './chat';
 export type Activity = 'idle' | 'walking' | 'running' | 'thinking' | 'speaking' | 'awaiting-input' | 'awaiting-approval' | 'success' | 'error';
 export interface TaskGrant { folders: string[]; origins: string[]; browserInput?: boolean }
 export interface ProjectLink { id: string; name: string; directory: string; application: 'codex'; threadId: string; threadTitle: string }
 export interface ProjectCandidate { threadId: string; title: string; directory: string; updatedAt: number }
 export interface ProjectHandoff { id: string; projectId: string; threadId: string; status: 'preparing' | 'needs-response' | 'sent' | 'running' | 'completed' | 'uncertain' | 'failed'; message: string; startedAt?: number; updatedAt: number }
-export interface Settings { projectReadAccess?: boolean; projects?: ProjectLink[]; activeProjectId?: string | null; scale: number; roaming: boolean; alwaysOnTop: boolean; model: string; reasoningByModel?: Record<string, string>; codexPath: string; chromeExecutablePath: string; chromeUserDataDir: string; chromeProfileDirectory: string; grant: TaskGrant; skinPath: string | null }
+export interface Settings { chat?: ChatSettings; projectReadAccess?: boolean; projects?: ProjectLink[]; activeProjectId?: string | null; scale: number; roaming: boolean; alwaysOnTop: boolean; model: string; reasoningByModel?: Record<string, string>; codexPath: string; chromeExecutablePath: string; chromeUserDataDir: string; chromeProfileDirectory: string; grant: TaskGrant; skinPath: string | null }
 export type BrowserSetupStatus = 'idle' | 'detecting' | 'missing-browser' | 'missing-extension' | 'extension-disabled' | 'profile-mismatch' | 'ready' | 'awaiting-confirmation' | 'connected' | 'failed';
 export interface BrowserProfile { id: string; name: string; extension: 'enabled' | 'disabled' | 'missing' | 'unknown'; lastUsed: boolean }
 export interface BrowserSetupSnapshot { status: BrowserSetupStatus; message: string; profiles: BrowserProfile[]; selectedProfileId: string | null; chromeFound: boolean; canConnect: boolean }
 export interface BrowserConnectionConfig { executablePath: string; userDataDir: string; profileDirectory: string }
-export interface ChatMessage { id: string; role: 'user' | 'assistant' | 'system'; text: string; createdAt: number }
+export interface ChatMessage { channel?: 'chat' | 'codex' | 'project'; id: string; role: 'user' | 'assistant' | 'system'; text: string; createdAt: number }
 export interface Question { id: string; header: string; question: string; options?: { label: string; description?: string }[]; isOther?: boolean; isSecret?: boolean }
 export interface ApprovalRequest { id: string; kind: 'approval'; threadId: string; turnId: string; title: string; description: string; details: string[]; supportsSession: boolean }
 export interface QuestionRequest { id: string; kind: 'question'; threadId: string; turnId: string; title: string; questions: Question[] }
@@ -62,13 +63,21 @@ export type QuickView = 'chat' | 'compose' | 'quota';
 export type PanelTab = 'chat' | 'settings' | 'history';
 export interface QuickLayoutRequest { id: number; width: number; height: number; body: { x: number; y: number; width: number; height: number }; regions: import('./bubble-shape').RoundedRect[] }
 export interface QuickLayoutContext { id: number; maxWidth: number; optionsSide: 'left' | 'right' }
-export interface AppSnapshot { projectHandoff?: ProjectHandoff | null; settings: Settings; assistant: AssistantSnapshot; browserSetup?: BrowserSetupSnapshot; bubbleOpen: boolean; bubbleMode?: BubbleMode; quickView?: QuickView; quickLayout?: QuickLayoutContext; quickShape?: import('./bubble-shape').QuickBubbleShape; panelTab?: PanelTab; skin: SkinData | null; direction: 'left' | 'right'; motion: 'idle' | 'walking' | 'running'; version: string; animationStartedAt?: number; rigPlayback?: import('./rig').RigPlayback }
+export interface AppSnapshot { foreground?: 'chat' | 'codex'; chat?: ChatSnapshot; projectHandoff?: ProjectHandoff | null; settings: Settings; assistant: AssistantSnapshot; browserSetup?: BrowserSetupSnapshot; bubbleOpen: boolean; bubbleMode?: BubbleMode; quickView?: QuickView; quickLayout?: QuickLayoutContext; quickShape?: import('./bubble-shape').QuickBubbleShape; panelTab?: PanelTab; skin: SkinData | null; direction: 'left' | 'right'; motion: 'idle' | 'walking' | 'running'; version: string; animationStartedAt?: number; rigPlayback?: import('./rig').RigPlayback }
 export interface AnswerPayload { id: string; answers: Record<string, string[]> }
 export type ApprovalDecision = 'allow' | 'deny' | 'stop' | 'session';
 export interface PetBridge {
   getState(): Promise<AppSnapshot>;
   onState(listener: (state: AppSnapshot) => void): () => void;
-  send(text: string): Promise<void>;
+  send(text: string, mode?: SendMode): Promise<void>;
+  connectChat(): Promise<void>;
+  checkChat(): Promise<void>;
+  showChat(): Promise<void>;
+  loginChat(): Promise<void>;
+  stopChat(): Promise<void>;
+  newChat(): Promise<void>;
+  resumeChat(id: string): Promise<void>;
+  confirmChatNotSent(): Promise<void>;
   answer(payload: AnswerPayload): Promise<void>;
   approve(id: string, decision: ApprovalDecision): Promise<void>;
   stop(): Promise<void>;

@@ -1,10 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Settings } from '../shared/types';
-export const defaults: Settings = { projectReadAccess: true, projects: [], activeProjectId: null, scale: 1, roaming: true, alwaysOnTop: true, model: '', reasoningByModel: {}, codexPath: '', chromeExecutablePath: '', chromeUserDataDir: '', chromeProfileDirectory: '', grant: { folders: [], origins: [] }, skinPath: null };
+export const defaults: Settings = { chat: { mode: 'auto', model: '', effort: 'high' }, projectReadAccess: true, projects: [], activeProjectId: null, scale: 1, roaming: true, alwaysOnTop: true, model: '', reasoningByModel: {}, codexPath: '', chromeExecutablePath: '', chromeUserDataDir: '', chromeProfileDirectory: '', grant: { folders: [], origins: [] }, skinPath: null };
 export function validateSettings(input: unknown, previous: Settings = defaults): Settings {
   const v = input && typeof input === 'object' ? input as Record<string, unknown> : {};
   const result = structuredClone(previous);
+  if (v.chat && typeof v.chat === 'object' && !Array.isArray(v.chat)) {
+    const chat = v.chat as Record<string, unknown>;
+    result.chat = { mode: ['auto','chat','task'].includes(String(chat.mode)) ? chat.mode as 'auto'|'chat'|'task' : previous.chat?.mode ?? 'auto', model: typeof chat.model === 'string' && chat.model.length < 120 ? chat.model : previous.chat?.model ?? '', effort: 'high' };
+  }
   if (typeof v.scale === 'number' && Number.isFinite(v.scale)) result.scale = Math.max(.65, Math.min(1.7, v.scale));
   for (const key of ['roaming', 'alwaysOnTop', 'projectReadAccess'] as const) if (typeof v[key] === 'boolean') result[key] = v[key];
   for (const key of ['model', 'codexPath', 'chromeExecutablePath', 'chromeUserDataDir', 'chromeProfileDirectory'] as const) if (typeof v[key] === 'string' && v[key].length < 4096 && !v[key].includes('\0')) result[key] = v[key];

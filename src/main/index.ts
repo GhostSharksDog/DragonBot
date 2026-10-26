@@ -2,6 +2,9 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, protocol, scree
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { ChatService } from './chat/service';
+import { ChatChrome, openManualChatLogin } from './chat/browser';
+import { routeMessage, taskContext, type SendMode } from '../shared/chat';
 import { ProjectService } from './projects';
 import { activeProject } from './agent/project-policy';
 import { realpath, stat } from 'node:fs/promises';
@@ -25,6 +28,10 @@ if (process.env.DRAGON_PET_DATA_DIR) app.setPath('userData', path.resolve(proces
 if (!app.requestSingleInstanceLock()) app.quit();
 let pet: BrowserWindow, bubble: BrowserWindow, tray: Tray, settings: SettingsStore, assistant: AssistantService, tools: ToolHost;
 let browserSetup: BrowserSetupService;
+let chat: ChatService;
+let foreground: 'chat' | 'codex' = 'chat';
+let sendingMessage = false;
+function currentActivity(): Activity { const a=assistant.getSnapshot(); if(a.pending.length||a.activeTurnId)return a.activity;const c=chat?.getSnapshot();return c?.active?(c.messages.at(-1)?.role==='assistant'?'speaking':'thinking'):a.activity; }
 let projects: ProjectService;
 let outsideClickMonitor: QuickOutsideClickMonitor | undefined;
 let bubbleOpen = false, skin: SkinData | null = null, skinRoot = '', direction: 'left' | 'right' = 'right', motion: 'idle' | 'walking' | 'running' = 'idle';
@@ -40,7 +47,7 @@ const masks = new Map<string, { bitmap: Buffer; width: number; height: number }>
 
 function currentRigPlayback() {
   if (!skin?.manifest.rig) return undefined;
-  const control = { activity: assistant.getSnapshot().activity, motion, direction };
+  const control = { activity: currentActivity(), motion, direction };
   if (!rigPlayback || JSON.stringify(rigPlayback.control) !== JSON.stringify(control)) rigPlayback = transitionRigPlayback(skin.manifest.rig, rigPlayback, control, Date.now());
   return rigPlayback;
 }
@@ -59,7 +66,7 @@ function quickLayoutContext() {
   const left = bounds.x - area.x, right = area.x + area.width - bounds.x - bounds.width;
   return { id: bubbleRevision, maxWidth: Math.max(left, right) >= 550 ? 550 : Math.min(320, area.width - 16), optionsSide: (right >= 550 ? 'right' : 'left') as 'left' | 'right' };
 }
-function snapshot(): AppSnapshot { const key = animationKey(); if (key !== lastAnimationKey) { lastAnimationKey = key; animationStartedAt = Date.now(); } return { projectHandoff: projects?.getSnapshot(), settings: settings.value, assistant: assistant.getSnapshot(), browserSetup: browserSetup?.getSnapshot(), bubbleOpen, bubbleMode, quickView, quickLayout: quickLayoutContext(), quickShape: bubbleMode === 'quick' ? quickShape() : undefined, panelTab, skin, direction, motion, version: app.getVersion(), animationStartedAt, rigPlayback: currentRigPlayback() }; }
+function snapshot(): AppSnapshot { const key = animationKey(); if (key !== lastAnimationKey) { lastAnimationKey = key; animationStartedAt = Date.now(); } return { chat: chat?.getSnapshot(), foreground, projectHandoff: projects?.getSnapshot(), settings: settings.value, assistant: { ...assistant.getSnapshot(), activity: currentActivity() }, browserSetup: browserSetup?.getSnapshot(), bubbleOpen, bubbleMode, quickView, quickLayout: quickLayoutContext(), quickShape: bubbleMode === 'quick' ? quickShape() : undefined, panelTab, skin, direction, motion, version: app.getVersion(), animationStartedAt, rigPlayback: currentRigPlayback() }; }
 function publish() {
   if (!pet || pet.isDestroyed() || !assistant) return;
   const data = snapshot();
@@ -140,7 +147,7 @@ async function setSkin(manifestPath: string | null) {
   skin = next; rigPlayback = undefined; lastAnimationKey = ''; masks.clear();
 }
 function animationKey() {
-  return effectiveAnimationKey(skin?.manifest, assistant.getSnapshot().activity, motion, direction);
+  return effectiveAnimationKey(skin?.manifest, currentActivity(), motion, direction);
 }
 function spriteHit(x: number, y: number, width: number, height: number): boolean {
   if (pointInRoundedRect(petChatLauncherRect(width, height), x, y)) return true;
@@ -197,7 +204,7 @@ function tick() {
     if (ignoreBubbleMouse === inside) { ignoreBubbleMouse = !inside; bubble.setIgnoreMouseEvents(ignoreBubbleMouse, { forward: true }); }
   }
   const roamingMotion = roamingAnimationMotion(skin?.manifest);
-  const paused = !roamingMotion || !pet.isVisible() || bubbleOpen || near || draggingUntil > now || !settings.value.roaming || state.activity !== 'idle' || state.activeTurnId !== null || state.pending.length > 0;
+  const paused = Boolean(chat?.getSnapshot().active) || !roamingMotion || !pet.isVisible() || bubbleOpen || near || draggingUntil > now || !settings.value.roaming || state.activity !== 'idle' || state.activeTurnId !== null || state.pending.length > 0;
   roaming = advanceHorizontalMotion(roaming, { now, paused, area: screen.getDisplayMatching(bounds).workArea, petWidth: bounds.width, scale: settings.value.scale });
   motion = roaming.motion === 'idle' ? 'idle' : roamingMotion ?? 'idle'; direction = roaming.direction;
   const x = Math.round(roaming.x), y = Math.round(roaming.y);
@@ -233,15 +240,37 @@ function petMenu() {
 }
 function installHandlers() {
   handle('pet:state', () => snapshot());
-  handle('pet:send', async (text: unknown) => { if (typeof text !== 'string' || !text.trim() || text.length > 32000) throw new Error('请输入 1–32000 字的消息。'); await submitFromComposer(() => /(?:继续|接着|接续).{0,12}(?:桌宠|DragonBot|龙娘).{0,5}项目/i.test(text) ? projects.continueDefault(text.trim()) : assistant.send(text.trim())); });
+  handle('pet:send', async (text: unknown, mode?: SendMode) => {
+    if(typeof text!=='string'||!text.trim()||text.length>32000)throw Error('请输入 1–32000 字的消息。');
+    if(mode!==undefined&&!['auto','chat','task'].includes(mode))throw Error('消息通道无效。');
+    if(sendingMessage)throw Error('上一条消息仍在处理，请稍候。');
+    if(assistant.getSnapshot().pending.length)throw Error('请先回答当前问题或处理审批。');
+    sendingMessage=true;
+    try { await submitFromComposer(async()=>{
+      let route=routeMessage(text,mode??settings.value.chat?.mode??'auto',Boolean(assistant.getSnapshot().activeTurnId));
+      if(route==='choose') { const choice=await assistant.chooseLocal('这句话是想聊一聊，还是让我操作？',['聊一聊','帮我做事']);if(!choice)throw Error('已取消发送，草稿已保留。');route=choice==='聊一聊'?'chat':'task'; }
+      if(route==='chat'){foreground='chat';publish();await chat.send(text.trim());}
+      else if(route==='project'){foreground='codex';publish();await projects.continueDefault(text.trim());}
+      else {const context=foreground==='chat'&&!assistant.getSnapshot().activeTurnId?taskContext(chat.getSnapshot().messages,text.trim()):text.trim();foreground='codex';publish();await assistant.send(context);}
+    });} finally{sendingMessage=false;}
+  });
+  handle('pet:chat-connect',()=>chat.connect());
+  handle('pet:chat-check',()=>chat.check());
+  handle('pet:chat-show',()=>chat.show());
+  handle('pet:chat-login',()=>chat.login());
+  handle('pet:chat-stop',()=>chat.stop());
+  handle('pet:chat-new',async()=>{await chat.newConversation();foreground='chat';publish();});
+  handle('pet:chat-resume',async(id:string)=>{if(typeof id!=='string'||id.length>100)throw Error('会话编号无效。');await chat.resume(id);foreground='chat';publish();});
+  handle('pet:chat-not-sent',()=>chat.confirmNotSent());
   handle('pet:answer', (payload: AnswerPayload) => { if (!payload || typeof payload.id !== 'string' || !payload.answers || typeof payload.answers !== 'object') throw new Error('回答格式无效。'); return submitFromComposer(() => assistant.answer(payload)); });
   handle('pet:approve', (id: string, decision: ApprovalDecision) => { if (typeof id !== 'string' || !['allow', 'deny', 'stop', 'session'].includes(decision)) throw new Error('批准请求格式无效。'); return assistant.approve(id, decision); });
-  handle('pet:stop', () => { projects.stop(); return assistant.stop(); });
-  handle('pet:new-thread', async () => { if (assistant.getSnapshot().activeTurnId) throw new Error('请先停止当前任务。'); settings.update({ grant: { ...settings.value.grant, folders: [] } }); await assistant.newThread(); publish(); });
-  handle('pet:resume-thread', async (id: string) => { if (typeof id !== 'string' || id.length > 200) throw new Error('会话编号无效。'); if (assistant.getSnapshot().activeTurnId) throw new Error('请先停止当前任务。'); settings.update({ grant: { ...settings.value.grant, folders: [] } }); await assistant.resumeThread(id); publish(); });
+  handle('pet:stop', () => { if(foreground==='chat'&&!assistant.getSnapshot().pending.length)return chat.stop();projects.stop();return assistant.stop(); });
+  handle('pet:new-thread', async () => { if (assistant.getSnapshot().activeTurnId) throw new Error('请先停止当前任务。'); settings.update({ grant: { ...settings.value.grant, folders: [] } }); await assistant.newThread(); foreground='codex'; publish(); });
+  handle('pet:resume-thread', async (id: string) => { if (typeof id !== 'string' || id.length > 200) throw new Error('会话编号无效。'); if (assistant.getSnapshot().activeTurnId) throw new Error('请先停止当前任务。'); settings.update({ grant: { ...settings.value.grant, folders: [] } }); await assistant.resumeThread(id); foreground='codex'; publish(); });
   handle('pet:settings', async (patch: Partial<Settings>) => {
     if (!patch || typeof patch !== 'object') throw new Error('设置无效。');
     if (['projects', 'activeProjectId', 'projectReadAccess', 'grant', 'codexPath', 'model', 'reasoningByModel', 'chromeExecutablePath', 'chromeUserDataDir', 'chromeProfileDirectory'].some(key => key in patch) && assistant.getSnapshot().activeTurnId) throw new Error('任务执行时不能更改授权范围或助手配置；请先停止任务。');
+    if (chat.getSnapshot().active && ('chat' in patch || 'chromeExecutablePath' in patch)) throw Error('普通 Chat 回复时不能更改模型或浏览器设置。');
     const safePatch = { ...patch }; delete safePatch.skinPath;
     if (safePatch.projects) for (const project of safePatch.projects) {
       if (typeof project.directory !== 'string' || !path.isAbsolute(project.directory) || !(await stat(project.directory)).isDirectory()) throw new Error('请选择存在的项目文件夹。');
@@ -249,7 +278,7 @@ function installHandlers() {
       const thread = await assistant.readProjectThread(project.threadId); if (!thread.name || thread.name !== project.threadTitle) throw new Error('原对话标题不匹配，请重新查找并关联。');
     }
     if (['chromeExecutablePath', 'chromeUserDataDir', 'chromeProfileDirectory'].some(key => key in patch && patch[key as keyof Settings] !== settings.value[key as keyof Settings])) await tools.disconnectBrowser();
-    const oldReadAccess = settings.value.projectReadAccess; const oldPath = settings.value.codexPath; settings.update(safePatch);
+    const oldReadAccess = settings.value.projectReadAccess; const oldPath = settings.value.codexPath; settings.update(safePatch);if(safePatch.chat?.mode==='chat')foreground='chat';else if(safePatch.chat?.mode==='task')foreground='codex';
     pet.setAlwaysOnTop(settings.value.alwaysOnTop, 'floating'); bubble.setAlwaysOnTop(settings.value.alwaysOnTop, 'floating');
     const width = Math.round(200 * settings.value.scale), height = Math.round(240 * settings.value.scale), bounds = pet.getBounds();
     if (bounds.width !== width || bounds.height !== height) pet.setSize(width, height);
@@ -345,6 +374,8 @@ async function main() {
   assistant = new AssistantService({ dataDir, getSettings: () => settings.value, toolHost: tools, openExternal });
   projects = new ProjectService({ dataDir, helperPath: path.join(app.getAppPath().replace(/\.asar$/i, '.asar.unpacked'), 'dist/native/desktop-chat.exe'), getSettings: () => settings.value, saveSettings: patch => { settings.update(patch); publish(); }, listThreads: () => assistant.listProjectThreads(), readThread: id => assistant.readProjectThread(id), uniqueTitle: (id, title) => assistant.uniqueProjectTitle(id, title), openLink: async url => { if (!/^codex:\/\/threads\/[0-9a-f-]{36}$/i.test(url)) throw new Error('对话链接无效。'); await shell.openExternal(url); }, choose: (question, choices) => assistant.chooseLocal(question, choices), notify: text => assistant.notifyLocal(text), changed: () => publish() });
   await projects.initialize();
+  const chatConfig=async()=>({...await browserSetup.getConnectionConfig(),userDataDir:path.join(dataDir,'chat','browser-profile'),profileDirectory:'Default'});
+  chat=new ChatService({dataDir,getSettings:()=>settings.value.chat!,saveModel:model=>settings.update({chat:{...settings.value.chat!,model}}),createBrowser:async()=>new ChatChrome(await chatConfig()),openLogin:async()=>openManualChatLogin(await chatConfig()),changed:()=>publish()});
   const securePreferences = { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true };
   pet = new BrowserWindow({ width: Math.round(200 * settings.value.scale), height: Math.round(240 * settings.value.scale), frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false, resizable: false, skipTaskbar: true, focusable: false, show: false, webPreferences: securePreferences });
   bubble = new BrowserWindow({ width: 440, height: 680, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false, resizable: false, skipTaskbar: true, show: false, webPreferences: { ...securePreferences, backgroundThrottling: false } });
@@ -413,7 +444,7 @@ app.on('before-quit', event => {
   event.preventDefault(); shuttingDown = true;
   if (timer) clearInterval(timer);
   outsideClickMonitor?.dispose();
-  void Promise.allSettled([projects?.dispose(), assistant?.dispose(), tools?.dispose()]).finally(() => app.quit());
+  void Promise.allSettled([chat?.dispose(), projects?.dispose(), assistant?.dispose(), tools?.dispose()]).finally(() => app.quit());
   setTimeout(() => app.exit(0), 4000).unref();
 });
 app.on('window-all-closed', () => { if (shuttingDown) app.quit(); });

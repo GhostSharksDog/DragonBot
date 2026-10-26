@@ -21,6 +21,8 @@ interface QuickBubbleProps {
   active: boolean;
   thinking: boolean;
   sending: boolean;
+  modePicker?: ReactNode;
+  chatActions?: ReactNode;
   error: string | null;
   status: string;
   send(): Promise<void>;
@@ -111,11 +113,12 @@ export function QuickBubble(props: QuickBubbleProps) {
     {showInteraction ? <>{interactionCount > 1 && <p className="quick-queue">还有 {interactionCount - 1} 项待回应。</p>}{interaction}</> : compose ?
       <div className="quick-composer"><textarea ref={inputRef} value={draft} rows={1} aria-label="对龙娘说点什么" placeholder={active ? '还想补充什么？' : '想说什么，告诉我…'} maxLength={50000} onChange={event => setDraft(event.target.value)} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
         if (event.key === 'Enter' && !event.shiftKey && !composing.current && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); void props.send(); }
-      }} /><button type="button" className="send-button" aria-label={active ? '补充任务要求' : '发送消息'} title={active ? '补充任务要求' : '发送消息'} disabled={!draft.trim() || !props.connected || props.sending} onClick={() => { void props.send(); }}><Icon name="arrow" size={17} /></button></div>
+      }} />{props.modePicker}<button type="button" className="send-button" aria-label={active ? '补充任务要求' : '发送消息'} title={active ? '补充任务要求' : '发送消息'} disabled={!draft.trim() || !props.connected || props.sending} onClick={() => { void props.send(); }}><Icon name="arrow" size={17} /></button></div>
       : props.questionPrompt ? props.questionPrompt : <>
         {reply && !props.thinking && <div className={`quick-reply${longReply && !expanded ? ' is-collapsed' : ''}`} aria-live="polite" aria-relevant="additions text"><p className="quick-reply-text">{reply.text}</p></div>}
         {reply && !props.thinking && longReply && <button className="text-button quick-expand" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? '收起回复' : '展开回复'}</button>}
         {props.thinking ? <p className="quick-reply-text" role="status">让我想想…</p> : !reply && !props.error && props.connected && <p className="quick-reply-text">我在，点旁边的聊天图标和我说话吧。</p>}
       </>}
+    {props.chatActions}
   </QuickBubbleFrame>;
 }
