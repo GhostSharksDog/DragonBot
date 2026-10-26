@@ -23,13 +23,12 @@ export function QuotaBubble({ snapshot, refreshing, refresh, back, close, error 
   const bucketIds = buckets.map(bucket => bucket.id).join('\0');
   useEffect(() => { setSelectedId(current => buckets.some(bucket => bucket.id === current) ? current : buckets.find(bucket => bucket.id === 'codex')?.id ?? buckets[0]?.id ?? ''); }, [bucketIds]);
   const selected = buckets.find(bucket => bucket.id === selectedId) ?? buckets.find(bucket => bucket.id === 'codex') ?? buckets[0];
-  return <QuickBubbleFrame shape={snapshot.quickShape} title="Codex 额度" quota close={close} actions={<button type="button" className="icon-button" aria-label="刷新额度" title="刷新额度" disabled={loading} onClick={refresh}><Icon name="refresh" size={14} /></button>} footer={<>
+  return <QuickBubbleFrame shape={snapshot.quickShape} layout={snapshot.quickLayout} title="Codex 额度" quota close={close} actions={<button type="button" className="icon-button" aria-label="刷新额度" title="刷新额度" disabled={loading} onClick={refresh}><Icon name="refresh" size={14} /></button>} footer={<>
     {pending.length > 0 && <p className="quota-pending" role="status">有 {pending.length} 项待{pending.some(request => request.kind === 'approval') ? '回答或批准' : '回答'}</p>}
     <button className="text-button quota-back" onClick={back}>{pending.length ? '返回处理待办' : '返回聊天'}<Icon name="chevron" size={12} /></button>
   </>}>
-    {loading && <p className="quick-status" role="status">正在刷新额度…</p>}
+    <p className="quick-status quota-refresh-status" role="status">{loading ? '正在刷新额度…' : quota?.stale ? '上次记录，尚未更新。' : '\u00a0'}</p>
     {(error || quota?.error) && <p className="quick-error" role="alert">{error || quota?.error}</p>}
-    {quota?.stale && <p className="quick-status quota-stale">上次记录，尚未更新。</p>}
     {buckets.length > 1 && <><label className="quota-category" htmlFor="quota-bucket">额度类别</label><select id="quota-bucket" className="field-input" value={selected?.id ?? ''} onChange={event => setSelectedId(event.target.value)}>{buckets.map(bucket => <option key={bucket.id} value={bucket.id}>{bucket.name || bucket.id}</option>)}</select></>}
     {(selected ? [selected] : []).map(bucket => <section className="quota-bucket" key={bucket.id} aria-label={bucket.name || bucket.id}>
       <h3>{bucket.name || (bucket.id === 'codex' ? 'Codex' : bucket.id)}</h3>

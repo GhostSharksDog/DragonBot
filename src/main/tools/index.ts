@@ -37,6 +37,10 @@ export class ToolHost {
       if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('工具参数必须是对象。');
       if (!this.definitions().some(tool => tool.name === name)) throw new Error('不允许使用该工具。');
       const result = name === 'pet_task_scope' ? structuredClone(this.context.getGrant()) : name.startsWith('pet_files_') ? await this.files.call(name, args as Record<string, unknown>) : await this.browser.call(name, args as Record<string, unknown>);
+      if (name === 'pet_browser_screenshot' && result && typeof result === 'object' && 'screenshot' in result) {
+        const item = result.screenshot as { data?: string; mimeType?: string };
+        if (item?.data && item.mimeType === 'image/png') return { contentItems: [{ type: 'inputImage' as const, imageUrl: `data:image/png;base64,${item.data}` }], success: true };
+      }
       return { contentItems: [{ type: 'inputText' as const, text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) }], success: true };
     }));
     this.queue = run.catch(() => undefined);
@@ -45,5 +49,6 @@ export class ToolHost {
   }
   async connectBrowser(config?: BrowserConnectionConfig) { await this.browser.connect(config); }
   async disconnectBrowser() { await this.browser.disconnect(); }
+  async showBrowser() { await this.browser.show(); }
   async dispose() { this.disposed = true; await this.browser.dispose(); }
 }

@@ -26,13 +26,13 @@ function fakeChild() {
 async function fixture(accountType: 'chatgpt' | 'apiKey' | null = 'chatgpt') {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), 'dragon-quota-')), value = settings(), requests: Request[] = []; let latest: ReturnType<typeof fakeChild>, account = accountType, accountId = 'account-a', turn = 0;
   const reply = (request: Request, result: unknown) => request.session.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`);
-  const runtime: BackendRuntime = { resolveCodex: async () => 'fake-codex.exe', spawnAppServer: () => {
+  const runtime: BackendRuntime = { resolveCodex: async () => 'fake-codex.exe', spawnAppServer: (_executable,args) => {
     const child = fakeChild(); latest = child; const attached = attachAppServer(child as unknown as ChildProcessWithoutNullStreams);
     child.stdin.on('data', chunk => { for (const line of chunk.toString().trim().split('\n')) {
       const message = JSON.parse(line); if (!message.method) continue; const request: Request = { ...message, session: child }; requests.push(request);
       const response = (result: unknown) => queueMicrotask(() => reply(request, result));
       if (request.method === 'initialize') response({});
-      if (request.method === 'config/read') response({ config: { features: { ...Object.fromEntries(DISABLED_FEATURES.map(name => [name, false])), code_mode_host: true }, mcp_servers: {} } });
+      if (request.method === 'config/read') response({ config: { features: { ...Object.fromEntries(DISABLED_FEATURES.map(name => [name, args.includes(`features.${name}=true`)])), code_mode_host: true }, mcp_servers: {} } });
       if (request.method === 'account/read') response({ account: account ? { type: account, email: 'test@example.test' } : null, workspaceRouting: account ? { chatgptAccountId: accountId } : null });
       if (request.method === 'model/list') response({ data: models, nextCursor: null });
       if (request.method === 'thread/start') response({ thread: { id: 'owned-thread' } });
@@ -50,6 +50,18 @@ test('quota normalizes multi-bucket windows without forwarding identity or upsel
   const result = normalizeQuota(response); assert.deepEqual(result.map(value => value.id), ['codex', 'other']); assert.equal(result[0].primary!.usedPercent, 0); assert.equal(result[1].primary!.usedPercent, 100); assert.equal(result[1].credits!.balance, '0'); assert(!JSON.stringify(result).includes('account-a')); assert(!JSON.stringify(result).includes('never forward'));
   assert.deepEqual(normalizeQuota({ rateLimits: { limitId: null, primary: { usedPercent: Infinity }, secondary: null, credits: null } })[0], { id: 'codex', name: null, primary: null, secondary: null, credits: null, planType: null });
   assert.equal(normalizeQuota({ rateLimits: { ...bucket(120), primary: { usedPercent: 120, windowDurationMins: null, resetsAt: null } } })[0].primary!.usedPercent, 100);
+});
+
+test('project turns replace workspace roots and keep the local execution environment enabled',async()=>{
+  const f=await fixture();const first=path.resolve('project-one'),second=path.resolve('project-two');
+  try{
+    const project=(directory:string)=>({id:'project',name:'project',directory,application:'codex' as const,threadId:'01a1670a-8733-7272-a5dd-b318692d3daa',threadTitle:'test'});
+    f.settings.projects=[project(first)];f.settings.activeProjectId='project';await f.service.send('build first');await f.service.stop();
+    f.settings.projects=[project(second)];await f.service.send('build second');await f.service.stop();
+    const turns=f.requests.filter(r=>r.method==='turn/start');assert.deepEqual(turns.map(r=>r.params.runtimeWorkspaceRoots),[[first],[second]]);
+    for(const turn of turns){assert.equal(turn.params.permissions,'dragon_project');assert.equal(turn.params.environments,undefined);assert.equal(turn.params.approvalPolicy,'untrusted');}
+    const resumed=f.requests.filter(r=>r.method==='thread/resume').at(-1)!;assert.deepEqual(resumed.params.runtimeWorkspaceRoots,[second]);assert(String(resumed.params.developerInstructions).includes(second));assert(!String(resumed.params.developerInstructions).includes(first));
+  }finally{await f.close();}
 });
 
 test('model metadata and per-model effort are retained and explicitly sent for every new turn', async () => {

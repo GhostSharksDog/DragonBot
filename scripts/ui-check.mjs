@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { chromium } from 'playwright';
-import { createQuickBubbleShape, quickBubbleHit } from '../src/shared/bubble-shape.ts';
+import { createQuickBubbleShape, quickBubbleHit, pointInRoundedRect } from '../src/shared/bubble-shape.ts';
 
 // An isolated headless browser, a fake preload bridge, and no access to daily Chrome.
 const root = path.resolve(process.env.DRAGON_PET_RENDERER_DIR || 'dist/renderer');
@@ -88,10 +88,13 @@ try {
       refreshQuota: async () => { record('refresh-quota'); state.assistant.quota = { ...state.assistant.quota, status: 'loading', error: null }; emit(); await wait(); state.assistant.quota = rejectNextQuota ? { ...state.assistant.quota, status: 'error', error: '模拟额度刷新失败', stale: true } : { ...state.assistant.quota, status: 'ready', error: null, stale: false, updatedAt: Date.now() }; rejectNextQuota = false; emit(); },
       showContextMenu: async () => { record('context-menu'); },
       resizeQuickBubble: async height => { record('quick-height', height); },
+      layoutQuickBubble: async layout => { record('quick-layout', layout); }, confirmQuickLayout: async id => { record('quick-ready', id); },
       drag: async (...args) => { record('drag', args); },
       detectBrowser: async () => { record('browser-detect'); state.browserSetup.status = 'detecting'; emit(); await wait(); state.browserSetup = { status: 'ready', message: '已找到日常 Chrome，可以连接并选择标签页。', profiles: [{ id: 'Default', name: '个人', extension: 'enabled', lastUsed: true }, { id: 'Profile 1', name: '工作', extension: 'enabled', lastUsed: false }], selectedProfileId: state.settings.chromeProfileDirectory || 'Default', chromeFound: true, canConnect: true }; emit(); return structuredClone(state.browserSetup); },
       selectBrowserProfile: async id => { record('browser-profile', id); state.settings.chromeProfileDirectory = id; state.browserSetup.selectedProfileId = id; emit(); return structuredClone(state.browserSetup); },
       installBrowserExtension: async () => { record('browser-install'); },
+      showBrowser: async () => { record('browser-show'); state.assistant.browser='connected'; emit(); }, reconnectBrowser: async () => { record('browser-reconnect'); state.assistant.browser='connected'; emit(); },
+      discoverProjects: async () => [],
       connectBrowser: async () => { record('browser'); state.assistant.browser = 'connecting'; state.browserSetup.status = 'awaiting-confirmation'; state.browserSetup.message = '请切换到 Chrome，批准连接并选择标签页。'; emit(); await new Promise(resolve => { window.__confirmBrowserConnection = resolve; }); state.assistant.browser = 'connected'; state.browserSetup.status = 'connected'; state.browserSetup.message = '已连接你选择的 Chrome 标签页，可以返回聊天交代任务。'; emit(); },
       reconnect: async () => { record('reconnect'); state.assistant.connection = 'reconnecting'; emit(); await wait(); state.assistant.connection = 'ready'; emit(); }, login: async () => { record('login'); state.assistant.login = 'opening-browser'; emit(); await wait(); state.assistant.login = 'waiting-browser'; emit(); }, openExternal: async url => { record('external', url); },
       cancelLogin: async () => { record('cancel-login'); state.assistant.login = 'signed-out'; state.assistant.diagnostic = { phase: 'account/login/canceled', message: '已取消这次登录。' }; emit(); },
@@ -227,13 +230,13 @@ try {
   await openComposer();
   await quick.getByRole('button', { name: '下一题', exact: true }).waitFor();
   assert.equal(await quick.getByRole('button', { name: '下一题', exact: true }).isDisabled(), true, 'Step one needs an answer before advancing');
-  await quick.getByRole('radio', { name: '按类型' }).check();
+  await quick.getByRole('button', { name: '按类型' }).click();
   await quick.getByRole('button', { name: '下一题', exact: true }).click();
   await quick.getByRole('textbox', { name: '文件夹名称的文字回答' }).fill('小气泡中的答案');
   await quick.getByRole('button', { name: '上一题', exact: true }).click();
-  assert.equal(await quick.getByRole('radio', { name: '按类型' }).isChecked(), true, 'Going back must retain the first answer');
+  assert.equal(await quick.getByRole('button', { name: '按类型' }).getAttribute('aria-pressed'), 'true', 'Going back must retain the first answer');
   await setMode('panel', 'chat');
-  assert.equal(await page.getByRole('radio', { name: '按类型' }).isChecked(), true, 'Question choices must survive quick to panel switching');
+  assert.equal(await page.getByRole('button', { name: '按类型' }).getAttribute('aria-pressed'), 'true', 'Question choices must survive quick to panel switching');
   assert.equal(await page.getByRole('textbox', { name: '文件夹名称的文字回答' }).inputValue(), '小气泡中的答案');
   await page.getByRole('textbox', { name: '文件夹名称的文字回答' }).fill('面板中补全的答案');
   await openComposer();
@@ -369,24 +372,12 @@ try {
   await page.getByRole('switch', { name: '允许网页输入与选择（可能自动保存）' }).check();
   assert.equal(await page.evaluate(() => window.__calls.filter(call => call.name === 'settings').at(-1).payload.grant.browserInput), true);
   const chromeSetup = page.locator('.chrome-setup');
-  await chromeSetup.getByText('已找到日常 Chrome，可以连接并选择标签页。').waitFor();
-  await page.evaluate(() => window.__patch({ browserSetup: { status: 'missing-extension', message: '请先安装 Playwright 官方扩展。', profiles: [{ id: 'Default', name: '个人', extension: 'missing', lastUsed: true }], selectedProfileId: 'Default', chromeFound: true, canConnect: false } }));
-  assert.equal(await chromeSetup.getByRole('button', { name: '连接并选择标签页' }).isDisabled(), true, 'Missing extension must explain installation before connection');
-  await chromeSetup.getByRole('button', { name: '安装官方扩展' }).click();
-  assert.equal(await page.evaluate(() => window.__calls.filter(call => call.name === 'browser-install').length), 1);
-  await chromeSetup.getByRole('button', { name: '重新检测' }).click();
-  await chromeSetup.getByText('已找到日常 Chrome，可以连接并选择标签页。').waitFor();
-  await chromeSetup.getByRole('combobox', { name: '使用哪个 Chrome 用户' }).selectOption('Profile 1');
-  assert.equal(await page.evaluate(() => window.__calls.filter(call => call.name === 'browser-profile').at(-1).payload), 'Profile 1');
-  await chromeSetup.getByRole('button', { name: '连接并选择标签页' }).click();
-  await chromeSetup.getByText('请切换到 Chrome，批准连接并选择标签页。').waitFor();
-  assert.equal(await chromeSetup.getByRole('button', { name: '请到 Chrome 确认并选页…' }).isDisabled(), true, 'Pending extension confirmation must remain visibly waiting, without duplicate connect');
-  assert.equal(await chromeSetup.getByRole('button', { name: '重新检测' }).isDisabled(), true);
-  await chromeSetup.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: path.join(artifactDir, 'chrome-awaiting-confirmation.png') });
-  await page.evaluate(() => window.__confirmBrowserConnection());
-  await chromeSetup.getByText('已连接你选择的 Chrome 标签页，可以返回聊天交代任务。').waitFor();
-  await chromeSetup.scrollIntoViewIfNeeded();
+  await chromeSetup.getByRole('heading', { name: '独立 Chrome' }).waitFor();
+  assert.equal(await chromeSetup.getByRole('button', { name: '安装官方扩展' }).count(), 0);
+  await chromeSetup.getByRole('button', { name: '显示浏览器' }).click();
+  assert.equal(await page.evaluate(() => window.__calls.filter(call => call.name === 'browser-show').length), 1);
+  await chromeSetup.getByRole('button', { name: '重新连接', exact: true }).click();
+  assert.equal(await page.evaluate(() => window.__calls.filter(call => call.name === 'browser-reconnect').length), 1);
   await page.screenshot({ path: path.join(artifactDir, 'chrome-setup.png') });
   const codexSettings = page.locator('.codex-settings');
   await codexSettings.locator('#model').selectOption('test-model');
@@ -441,7 +432,7 @@ try {
   await page.evaluate(request => window.__patch({ assistant: { pending: [request], activity: 'awaiting-input' } }), question);
   await page.getByRole('button', { name: '回答并继续' }).waitFor();
   assert.equal(await page.getByRole('button', { name: '回答并继续' }).isDisabled(), true);
-  await page.getByRole('radio', { name: '按类型' }).check();
+  await page.getByRole('button', { name: '按类型' }).click();
   await page.getByRole('textbox', { name: '文件夹名称的文字回答' }).fill('十月资料');
   await page.screenshot({ path: path.join(artifactDir, 'question.png') });
   await page.getByRole('button', { name: '回答并继续' }).click();
@@ -454,6 +445,53 @@ try {
   await page.setViewportSize({ width: 360, height: 480 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'Compact bubble must not overflow horizontally');
   await page.screenshot({ path: path.join(artifactDir, 'compact.png') });
+  // Independent option bubbles: both sides, narrow displays, and one-click
+  // multistep answers share the same draft and actual request lock.
+  const optionQuestion = { id: 'side-options', kind: 'question', threadId: 'thread-test', turnId: 'turn-test', title: '项目选择', questions: [
+    { id: 'next', header: '下一步', question: '接下来先做哪一项？', options: [{label:'先修复界面',description:'调整气泡与输入布局。'},{label:'先运行测试',description:'检查已有功能。'}] },
+    { id: 'check', header: '验证方式', question: '使用哪种验证方式？', options: [{label:'本地验证',description:'在项目目录运行测试。'},{label:'稍后验证'}] }
+  ] };
+  for (const [maxWidth,optionsSide] of [[550,'right'],[550,'left'],[320,'right']]) {
+    await page.setViewportSize({width:maxWidth,height:360});
+    await page.evaluate(({maxWidth,optionsSide,question}) => window.__patch({bubbleMode:'quick',quickView:'chat',quickShape:undefined,quickLayout:{id:100+maxWidth+(optionsSide==='left'?1:0),maxWidth,optionsSide},assistant:{activeTurnId:'turn-test',pending:[question],error:null}}),{maxWidth,optionsSide,question:optionQuestion});
+    await page.locator('.choice-bubble').first().waitFor(); await page.waitForTimeout(150);
+    const layout = await page.evaluate(() => window.__calls.filter(c=>c.name==='quick-layout').at(-1).payload);
+    const buttons = await page.locator('.choice-bubble').evaluateAll(elements=>elements.map(element=>{const r=element.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));
+    assert.equal(buttons.length,2);assert.equal(await page.locator('input[type=radio]').count(),0);
+    const body=createQuickBubbleShape(layout.body.width,layout.body.height,{x:optionsSide==='right'?-20:900,y:50});
+    for(const button of buttons) {
+      const x=button.x+button.width/2,y=button.y+button.height/2;
+      assert(!quickBubbleHit(body,x-layout.body.x,y),'Options must be outside the main question outline.');
+      assert(layout.regions.some(region=>pointInRoundedRect(region,x,y)),'Visible options have native hit regions.');
+    }
+    const between=buttons[0].y+buttons[0].height+4;
+    assert(!layout.regions.some(region=>pointInRoundedRect(region,buttons[0].x+50,between)),'Transparent option gaps must pass through.');
+    assert(Math.abs(buttons[1].y-buttons[0].y-buttons[0].height-8)<1);
+    await page.locator('.choice-bubble').first().focus();
+    await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');
+    assert.equal(await page.locator('.choice-bubble').first().evaluate(e=>getComputedStyle(e).outlineOffset),'-4px');
+    await page.screenshot({path:path.join(artifactDir,`choices-${maxWidth}-${optionsSide}.png`),omitBackground:true,clip:{x:0,y:0,width:maxWidth,height:layout.height}});
+  }
+  await page.evaluate(()=>{window.__calls.length=0;});
+  await page.locator('.choice-bubble').first().dblclick({delay:50});
+  await page.getByText('使用哪种验证方式？',{exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.__calls.filter(c=>c.name==='answer').length),0,'Double click cannot answer the following question.');
+  await page.getByRole('button',{name:'上一题',exact:true}).click();
+  assert.equal(await page.locator('.choice-bubble').first().getAttribute('aria-pressed'),'true');
+  await page.evaluate(()=>window.pet.openComposer());
+  assert.equal(await page.locator('.choice-bubbles').count(),0,'Input replaces external choices.');
+  await page.evaluate(()=>window.pet.showReply());
+  assert.equal(await page.locator('.choice-bubble').first().getAttribute('aria-pressed'),'true','Answer survives compose view.');
+  await page.locator('.choice-bubble').first().click();
+  await page.getByText('使用哪种验证方式？',{exact:true}).waitFor();
+  await page.evaluate(()=>window.__holdNextInteraction());
+  await page.locator('.choice-bubble').first().press('Enter');
+  await page.waitForFunction(()=>window.__calls.some(c=>c.name==='answer'));
+  await page.locator('.choice-bubble').first().dispatchEvent('click',{detail:1});
+  assert.equal(await page.evaluate(()=>window.__calls.filter(c=>c.name==='answer').length),1);
+  assert.deepEqual(await page.evaluate(()=>window.__calls.find(c=>c.name==='answer').payload),{id:'side-options',answers:{next:['先修复界面'],check:['本地验证']}});
+  await page.evaluate(()=>window.__releaseInteraction());await page.locator('.choice-bubbles').waitFor({state:'detached'});
+  await page.evaluate(()=>window.__patch({quickLayout:undefined,assistant:{activeTurnId:null,pending:[]}}));
   const pet = await context.newPage();
   await pet.setViewportSize({ width: 200, height: 240 });
   pet.on('pageerror', error => errors.push(error.message));

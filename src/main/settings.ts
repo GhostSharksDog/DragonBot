@@ -1,16 +1,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Settings } from '../shared/types';
-export const defaults: Settings = { scale: 1, roaming: true, alwaysOnTop: true, model: '', reasoningByModel: {}, codexPath: '', chromeExecutablePath: '', chromeUserDataDir: '', chromeProfileDirectory: '', grant: { folders: [], origins: [] }, skinPath: null };
+export const defaults: Settings = { projectReadAccess: true, projects: [], activeProjectId: null, scale: 1, roaming: true, alwaysOnTop: true, model: '', reasoningByModel: {}, codexPath: '', chromeExecutablePath: '', chromeUserDataDir: '', chromeProfileDirectory: '', grant: { folders: [], origins: [] }, skinPath: null };
 export function validateSettings(input: unknown, previous: Settings = defaults): Settings {
   const v = input && typeof input === 'object' ? input as Record<string, unknown> : {};
   const result = structuredClone(previous);
   if (typeof v.scale === 'number' && Number.isFinite(v.scale)) result.scale = Math.max(.65, Math.min(1.7, v.scale));
-  for (const key of ['roaming', 'alwaysOnTop'] as const) if (typeof v[key] === 'boolean') result[key] = v[key];
+  for (const key of ['roaming', 'alwaysOnTop', 'projectReadAccess'] as const) if (typeof v[key] === 'boolean') result[key] = v[key];
   for (const key of ['model', 'codexPath', 'chromeExecutablePath', 'chromeUserDataDir', 'chromeProfileDirectory'] as const) if (typeof v[key] === 'string' && v[key].length < 4096 && !v[key].includes('\0')) result[key] = v[key];
   if (v.reasoningByModel && typeof v.reasoningByModel === 'object' && !Array.isArray(v.reasoningByModel)) {
     result.reasoningByModel = Object.fromEntries(Object.entries(v.reasoningByModel).filter(([model, effort]) => model.length > 0 && model.length < 256 && !model.includes('\0') && typeof effort === 'string' && effort.length > 0 && effort.length < 80 && !effort.includes('\0')).slice(0, 100));
   }
+  if (Array.isArray(v.projects)) result.projects = v.projects.filter((p: any) => p && typeof p.id === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(p.id) && p.application === 'codex' && typeof p.name === 'string' && p.name.length > 0 && p.name.length < 100 && typeof p.directory === 'string' && path.isAbsolute(p.directory) && !p.directory.includes('\0') && typeof p.threadId === 'string' && /^[0-9a-f-]{36}$/i.test(p.threadId) && typeof p.threadTitle === 'string' && p.threadTitle.length > 0 && p.threadTitle.length < 300).slice(0,20).map((p: any) => ({ id:p.id, name:p.name, directory:path.resolve(p.directory), application:'codex', threadId:p.threadId, threadTitle:p.threadTitle }));
+  if (v.activeProjectId === null || typeof v.activeProjectId === 'string') result.activeProjectId = v.activeProjectId as string | null;
+  if (!result.projects?.some(project => project.id === result.activeProjectId)) result.activeProjectId = null;
   if (v.skinPath === null || typeof v.skinPath === 'string') result.skinPath = v.skinPath;
   if (v.grant && typeof v.grant === 'object') {
     const grant = v.grant as Record<string, unknown>;

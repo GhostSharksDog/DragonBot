@@ -19,6 +19,7 @@ const expectedSkinName = argument('--expected-skin-name') ?? expectedManifest?.n
 const countFrames = animation => animation?.atlas?.indices?.length ?? animation?.frames?.length ?? 0;
 if (expectedManifest && expectedKind === 'frames') { assert(!expectedManifest.rig); for (const action of ['idle', 'thinking']) assert.equal(countFrames(expectedManifest.animations[action]), 24, `${action} has 24 playback frames; repeated sources are allowed`); }
 const resources = path.join(path.dirname(executable), 'resources');
+for (const helper of ['raw-mouse.exe', 'desktop-chat.exe']) await stat(path.join(resources, 'app.asar.unpacked/dist/native', helper));
 const dataDir = path.resolve('.local/package-check-' + Date.now());
 await mkdir(dataDir, { recursive: true });
 const env = { ...process.env, DRAGON_PET_DATA_DIR: dataDir }; delete env.ELECTRON_RUN_AS_NODE;

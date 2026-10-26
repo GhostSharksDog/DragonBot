@@ -1,6 +1,7 @@
 export interface BubblePoint { x: number; y: number }
 export interface RoundedRect { x: number; y: number; width: number; height: number; radius: number }
 export interface QuickBubbleShape {
+  offset?: BubblePoint;
   body: RoundedRect;
   tail: [BubblePoint, BubblePoint, BubblePoint];
   content: { x: number; y: number; width: number; height: number };

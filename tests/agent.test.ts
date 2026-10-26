@@ -74,6 +74,36 @@ test('Codex process overrides disable action paths and quote MCP identifiers wit
 const settings: Settings = { scale: 1, roaming: true, alwaysOnTop: true, model: '', codexPath: '', chromeExecutablePath: '', chromeUserDataDir: '', chromeProfileDirectory: '', grant: { folders: [], origins: [] }, skinPath: null };
 type TestInternals = { state: AssistantSnapshot; rpc: JsonLineRpc | null; acceptingTools: boolean; onMessage(message: RpcMessage): Promise<void>; onRequest(request: RpcMessage): Promise<void> };
 
+test('project profile enables local execution without granting outside writes or network', () => {
+  const args=isolatedConfigArgs([],true,true);
+  assert(args.includes('features.shell_tool=true')); assert(args.includes('features.unified_exec=true'));
+  const permissions=args.find(arg=>arg.startsWith('permissions.dragon_project='))!;
+  assert(permissions.includes('extends=":workspace"'));assert(permissions.includes('":root"="read"'));assert(permissions.includes('network={enabled=false}'));assert(!permissions.includes('":root"="write"'));
+  const strict=isolatedConfigArgs([],true,false);assert(strict.some(arg=>arg.includes('":root"="deny"')));
+  if(process.platform==='win32')assert(strict.includes('windows.sandbox="mxc"'));
+});
+
+test('native project approvals use the live queue and rejected or stale requests cannot execute',async()=>{
+  const dataDir=await mkdtemp(path.join(os.tmpdir(),'dragon-native-project-'));
+  const projectSettings:Settings={...settings,projects:[{id:'project',name:'test',directory:dataDir,application:'codex',threadId:'01a1670a-8733-7272-a5dd-b318692d3daa',threadTitle:'test'}],activeProjectId:'project'};
+  const service=new AssistantService({dataDir,getSettings:()=>projectSettings,toolHost:emptyHost,openExternal:async()=>{}});
+  const internals=service as unknown as TestInternals; const input=new PassThrough(),output=new PassThrough();let written='';output.on('data',chunk=>{written+=chunk.toString();});
+  internals.rpc=new JsonLineRpc(input,output);Object.assign(internals.state,{connected:true,threadId:'owned',activeTurnId:'live'});internals.acceptingTools=true;
+  const params={threadId:'owned',turnId:'live',itemId:'cmd',command:'npm run build',cwd:dataDir};
+  try{
+    await internals.onRequest({id:1,method:'item/commandExecution/requestApproval',params});
+    assert(written.includes('"accept"'));assert.equal(service.getSnapshot().pending.length,0);
+    await internals.onRequest({id:2,method:'item/commandExecution/requestApproval',params:{...params,command:'Remove-Item important.txt'}});
+    const request=service.getSnapshot().pending[0];assert.equal(request.kind,'approval');assert.equal(request.turnId,'live');
+    await service.approve(request.id,'deny');assert(written.includes('"id":2,"result":{"decision":"decline"}'));
+    await assert.rejects(service.approve(request.id,'allow'),/过期/);
+    await internals.onRequest({id:3,method:'item/commandExecution/requestApproval',params:{...params,turnId:'old'}});
+    assert(written.includes('"id":3,"result":{"decision":"decline"}'));
+    await internals.onRequest({id:4,method:'item/commandExecution/requestApproval',params:{...params,reason:'扩大访问范围',additionalPermissions:{network:true}}});
+    assert.equal(service.getSnapshot().pending.length,1,'Standard build must still ask when expanded access is requested.');
+  }finally{await service.dispose();await rm(dataDir,{recursive:true,force:true});}
+});
+
 test('live tool approval is attached to the real task and stopping denies the operation', async () => {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), 'dragon-queue-test-'));
   const service = new AssistantService({ dataDir, getSettings: () => settings, toolHost: { definitions: () => [], call: async () => ({ contentItems: [], success: false }), connectBrowser: async () => {}, dispose: async () => {} }, openExternal: async () => {} });

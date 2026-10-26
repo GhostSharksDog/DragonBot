@@ -146,11 +146,11 @@ button:active:not(:disabled) { filter: brightness(.97); }
 .question-card legend { color: #675976; font-size: 11px; font-weight: 600; margin: 2px 0 7px; padding: 0; }
 .question-number { background: #dfd7e8; display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 5px; font-size: 9px; margin-right: 6px; }
 .question-options { display: flex; flex-direction: column; gap: 6px; margin-bottom: 9px; }
-.question-options label { border: 1px solid #dcd6e3; padding: 9px; border-radius: 7px; background: #faf9fc; display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.question-options label:hover { border-color: #b0a2c0; }
-.question-options label.chosen { border-color: #a595b8; background: #eae5f0; }
+.question-options button { border: 1px solid #dcd6e3; padding: 9px; border-radius: 7px; background: #faf9fc; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.question-options button:hover { border-color: #b0a2c0; }
+.question-options button.chosen { border-color: #a595b8; background: #eae5f0; }
 .question-options input { accent-color: #7d6c91; width: 12px; height: 12px; margin: 0; flex-shrink: 0; }
-.question-options label > span { flex: 1; min-width: 0; }
+.question-options button > span { flex: 1; min-width: 0; }
 .question-options strong { font-size: 10px; font-weight: 500; color: #766a84; }
 .question-options small { display: block; margin-top: 3px; color: #776d83; font-size: 9px; line-height: 1.65; }
 .question-options svg { color: #77658b; opacity: 0; }
@@ -307,6 +307,8 @@ select.field-input { min-height: 34px; }
 .quick-dismiss { position: absolute; z-index: 2; width: 18px; height: 18px; padding: 0; color: #9c8ba8; opacity: 0; pointer-events: auto; }
 .quick-shell:hover .quick-dismiss, .quick-dismiss:focus-visible { opacity: 1; }
 .quick-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.compose-shell .quick-scroll { display: flex; flex-direction: column; }
+.compose-shell .quick-content { flex: 0 0 auto; margin-top: auto; }
 .quick-content { width: 100%; }
 .quick-reply .message-body { font-size: 12px; line-height: 1.8; color: #5b4a66; }
 .quick-reply-text { margin: 0; color: #5b4a66; font-size: 13px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -320,7 +322,7 @@ select.field-input { min-height: 34px; }
 .quick-footer { flex-shrink: 0; }
 .quick-footer:empty { display: none; }
 .quick-composer { display: flex; align-items: flex-end; gap: 8px; padding: 3px 0; background: transparent; }
-.quick-composer textarea { flex: 1; min-width: 0; width: 100%; display: block; resize: none; border: 0; background: transparent; outline: 0; box-shadow: none; font-size: 13px; line-height: 1.7; color: #64516f; min-height: 68px; max-height: 112px; padding: 0; overflow-y: auto; }
+.quick-composer textarea { flex: 1; min-width: 0; width: 100%; display: block; resize: none; border: 0; background: transparent; outline: 0; box-shadow: none; font-size: 13px; line-height: 1.7; color: #64516f; min-height: 30px; max-height: 112px; padding: 0; overflow-y: auto; }
 .quick-composer textarea:focus-visible { outline: 0; }
 .quick-composer textarea::placeholder { color: #b2a3bb; }
 .quick-composer .send-button { width: 27px; height: 27px; flex: 0 0 27px; border-radius: 8px; background: #9c83b0; border-color: #967dac; box-shadow: none; }
@@ -328,7 +330,7 @@ select.field-input { min-height: 34px; }
 .quick-queue { font-size: 10px; color: #97839f; line-height: 1.6; margin: 0 0 7px; }
 .quick-shell .interaction-card { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .quick-shell .interaction-label { font-size: 9px; margin-bottom: 7px; }
-.quick-shell .interaction-label > svg, .quick-shell .question-options label > svg, .quick-shell .question-navigation svg { display: none; }
+.quick-shell .interaction-label > svg, .quick-shell .question-options button > svg, .quick-shell .question-navigation svg { display: none; }
 .quick-shell .interaction-card h3 { font-size: 12px; margin-bottom: 6px; }
 .quick-shell .interaction-card p { font-size: 11px; line-height: 1.65; margin-bottom: 8px; }
 .quick-shell .request-details { max-height: none; overflow: visible; padding: 7px; margin-bottom: 9px; }
@@ -342,7 +344,7 @@ select.field-input { min-height: 34px; }
 .quick-shell .question-card fieldset { margin-bottom: 9px; }
 .quick-shell .question-card legend { font-size: 11px; }
 .quick-shell .question-options { gap: 5px; }
-.quick-shell .question-options label { padding: 7px; }
+.quick-shell .question-options button { padding: 7px; }
 .quick-shell .question-options strong { font-size: 11px; }
 .quick-shell .question-options small { font-size: 10px; }
 .question-navigation { display: flex; gap: 7px; }
@@ -365,3 +367,17 @@ select.field-input { min-height: 34px; }
 .quota-back { min-height: 25px; font-size: 11px; width: 100%; justify-content: center; }
 .reasoning-setting { margin-top: 10px; }
 .reasoning-unavailable .text-button { margin-left: 6px; }
+
+.choice-bubbles { position: absolute; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; scrollbar-width: thin; }
+.choice-bubble { display: block; pointer-events: auto; width: 100%; flex-shrink: 0; min-height: 38px; text-align: left; border: 1px solid #c8b6d8; border-radius: 12px; padding: 10px 12px; color: #64516f; background: #fcf9ff; cursor: pointer; }
+.choice-bubble:hover, .choice-bubble[aria-pressed=true] { background: #eee6f5; border-color: #aa8fbf; }
+.choice-bubble strong { font-size: 12px; font-weight: 500; }
+.choice-bubble small { display: block; font-size: 10px; line-height: 1.6; margin-top: 3px; opacity: .8; }
+.choice-bubble:focus-visible, .question-options button:focus-visible { outline: 2px solid #9679ac; outline-offset: -4px; }
+.question-options button { text-align: left; }
+.question-progress { display: flex; gap: 12px; align-items: center; color: #9986a5; font-size: 11px; margin-top: 8px; }
+.quota-refresh-status { min-height: 16px; margin: 0 0 4px; }
+.project-entry { margin: 10px 0; padding: 10px; border: 1px solid #e5dceb; border-radius: 10px; background: #fcfaff; overflow-wrap: anywhere; font-size: 11px; }
+.project-entry p { margin: 4px 0; line-height: 1.6; }
+.project-entry small { color: #94849d; }
+.project-link-form { margin: 10px 0; }

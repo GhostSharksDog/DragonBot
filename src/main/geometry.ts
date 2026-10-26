@@ -10,8 +10,8 @@ export function bubbleBounds(pet: Rect, area: Rect, preferred = { width: 440, he
   const x = right + width <= area.x + area.width - 8 ? right : pet.x - width - 10;
   return clampRect({ x, y: pet.y + pet.height - height, width, height }, { x: area.x + 8, y: area.y + 8, width: area.width - 16, height: area.height - 16 });
 }
-export function quickBubbleBounds(pet: Rect, area: Rect, preferredHeight = 180): Rect {
-  const width = Math.min(320, Math.max(80, area.width - 16)), height = Math.min(Math.max(88, Math.min(360, preferredHeight)), Math.max(80, area.height - 16));
+export function quickBubbleBounds(pet: Rect, area: Rect, preferredHeight = 180, preferredWidth = 320): Rect {
+  const width = Math.min(preferredWidth, Math.max(80, area.width - 16)), height = Math.min(Math.max(88, Math.min(360, preferredHeight)), Math.max(80, area.height - 16));
   const headY = pet.y + pet.height * .28, right = pet.x + pet.width - 10;
   const x = right + width <= area.x + area.width - 8 ? right : pet.x - width + 10;
   return clampRect({ x, y: headY - height + 44, width, height }, { x: area.x + 8, y: area.y + 8, width: Math.max(80, area.width - 16), height: Math.max(80, area.height - 16) });

@@ -21,6 +21,12 @@ export async function buildNative() {
     child.once('error', reject);
     child.once('exit', code => code === 0 ? resolve() : reject(new Error(`鼠标辅助程序编译失败 (${code})`)));
   });
+  const framework = path.dirname(compiler);
+  const wpf = path.join(framework, 'WPF');
+  await new Promise((resolve, reject) => {
+    const child = spawn(compiler, ['/nologo', '/target:exe', '/optimize+', '/platform:anycpu', '/reference:System.Core.dll', '/reference:System.Web.Extensions.dll', ...['UIAutomationClient.dll', 'UIAutomationTypes.dll', 'WindowsBase.dll'].map(file => `/reference:${path.join(wpf, file)}`), `/out:${path.resolve('dist/native/desktop-chat.exe')}`, path.resolve('scripts/native/desktop-chat.cs')], { windowsHide: true, stdio: 'inherit' });
+    child.once('error', reject); child.once('exit', code => code === 0 ? resolve() : reject(new Error(`应用接续组件编译失败 (${code})`)));
+  });
   return true;
 }
 

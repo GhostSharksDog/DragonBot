@@ -2,6 +2,9 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, protocol, scree
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { ProjectService } from './projects';
+import { activeProject } from './agent/project-policy';
+import { realpath, stat } from 'node:fs/promises';
 import { AssistantService } from './agent/service';
 import { ToolHost } from './tools';
 import { SettingsStore } from './settings';
@@ -9,7 +12,7 @@ import { BrowserSetupService } from './browser-setup';
 import { loadSkin, validateSkinImageSize } from './skin';
 import { bubbleBounds, quickBubbleBounds, clampRect, distanceToRect } from './geometry';
 import { advanceHorizontalMotion, createHorizontalMotion, resetHorizontalMotion, ROAMING_TICK_MS } from './horizontal-motion';
-import type { AppSnapshot, Settings, SkinData, ApprovalDecision, AnswerPayload, Activity, BubbleMode, PanelTab, QuickView } from '../shared/types';
+import type { AppSnapshot, Settings, SkinData, ApprovalDecision, AnswerPayload, Activity, BubbleMode, PanelTab, QuickView, QuickLayoutRequest } from '../shared/types';
 import { animationFrameAt, animationFrameCount, skinFrameLayout, pointInSpriteOutline } from '../shared/types';
 import { effectiveAnimationKey, roamingAnimationMotion } from '../shared/animation-state';
 import { rigFiles, rigHitTest, sampleRigPose, transitionRigPlayback, validateRigImageSize, type RigPlayback } from '../shared/rig';
@@ -22,12 +25,16 @@ if (process.env.DRAGON_PET_DATA_DIR) app.setPath('userData', path.resolve(proces
 if (!app.requestSingleInstanceLock()) app.quit();
 let pet: BrowserWindow, bubble: BrowserWindow, tray: Tray, settings: SettingsStore, assistant: AssistantService, tools: ToolHost;
 let browserSetup: BrowserSetupService;
+let projects: ProjectService;
 let outsideClickMonitor: QuickOutsideClickMonitor | undefined;
 let bubbleOpen = false, skin: SkinData | null = null, skinRoot = '', direction: 'left' | 'right' = 'right', motion: 'idle' | 'walking' | 'running' = 'idle';
-let bubbleMode: BubbleMode = 'hidden', panelTab: PanelTab = 'chat', quickHeight = 180, userHidden = false, rigPlayback: RigPlayback | undefined;
-let quickView: QuickView = 'chat', ignoreBubbleMouse = false, bubbleRevision = 0;
+let bubbleMode: BubbleMode = 'hidden', panelTab: PanelTab = 'chat', quickHeight = 88, userHidden = false, rigPlayback: RigPlayback | undefined;
+let quickView: QuickView = 'chat', displayedQuickView: QuickView = 'chat', ignoreBubbleMouse = false, bubbleRevision = 0;
+let quickWidth = 320, quickBody: QuickLayoutRequest['body'] | null = null, quickRegions: QuickLayoutRequest['regions'] = [], pendingQuickFocus = false;
 let roaming = createHorizontalMotion({ x: 0, y: 0 }, performance.now()), draggingUntil = 0, timer: NodeJS.Timeout | undefined;
 let shuttingDown = false, lastStateKey = '', lastActivity: Activity = 'idle', ignoreMouse = false;
+let lastPendingId: string | null = null;
+let quickAwaitingLayout = false;
 let lastAnimationKey = '', animationStartedAt = Date.now();
 const masks = new Map<string, { bitmap: Buffer; width: number; height: number }>();
 
@@ -39,9 +46,20 @@ function currentRigPlayback() {
 }
 function quickShape() {
   const bounds = bubble.getBounds(), character = pet.getBounds();
-  return createQuickBubbleShape(bounds.width, bounds.height, { x: character.x + character.width / 2 - bounds.x, y: character.y + character.height * .28 - bounds.y });
+  const body = quickBody ?? { x: 0, y: 0, width: bounds.width, height: bounds.height };
+  const shape = createQuickBubbleShape(Math.min(body.width, bounds.width - body.x), Math.min(body.height, bounds.height - body.y), { x: character.x + character.width / 2 - bounds.x - body.x, y: character.y + character.height * .28 - bounds.y - body.y });
+  return { ...shape, offset: { x: body.x, y: body.y } };
 }
-function snapshot(): AppSnapshot { const key = animationKey(); if (key !== lastAnimationKey) { lastAnimationKey = key; animationStartedAt = Date.now(); } return { settings: settings.value, assistant: assistant.getSnapshot(), browserSetup: browserSetup?.getSnapshot(), bubbleOpen, bubbleMode, quickView, quickShape: bubbleMode === 'quick' ? quickShape() : undefined, panelTab, skin, direction, motion, version: app.getVersion(), animationStartedAt, rigPlayback: currentRigPlayback() }; }
+function bubbleHit(x: number, y: number) {
+  const shape = quickShape();
+  return quickBubbleHit(shape, x - shape.offset.x, y - shape.offset.y) || quickRegions.some(rect => pointInRoundedRect(rect, x, y));
+}
+function quickLayoutContext() {
+  const bounds = pet.getBounds(), area = screen.getDisplayMatching(bounds).workArea;
+  const left = bounds.x - area.x, right = area.x + area.width - bounds.x - bounds.width;
+  return { id: bubbleRevision, maxWidth: Math.max(left, right) >= 550 ? 550 : Math.min(320, area.width - 16), optionsSide: (right >= 550 ? 'right' : 'left') as 'left' | 'right' };
+}
+function snapshot(): AppSnapshot { const key = animationKey(); if (key !== lastAnimationKey) { lastAnimationKey = key; animationStartedAt = Date.now(); } return { projectHandoff: projects?.getSnapshot(), settings: settings.value, assistant: assistant.getSnapshot(), browserSetup: browserSetup?.getSnapshot(), bubbleOpen, bubbleMode, quickView, quickLayout: quickLayoutContext(), quickShape: bubbleMode === 'quick' ? quickShape() : undefined, panelTab, skin, direction, motion, version: app.getVersion(), animationStartedAt, rigPlayback: currentRigPlayback() }; }
 function publish() {
   if (!pet || pet.isDestroyed() || !assistant) return;
   const data = snapshot();
@@ -50,17 +68,22 @@ function publish() {
 function positionBubble() {
   if (!pet || !bubble || bubble.isDestroyed()) return;
   const bounds = pet.getBounds(), area = screen.getDisplayMatching(bounds).workArea;
-  bubble.setBounds(bubbleMode === 'quick' ? quickBubbleBounds(bounds, area, quickHeight) : bubbleBounds(bounds, area));
+  bubble.setBounds(bubbleMode === 'quick' ? quickBubbleBounds(bounds, area, quickHeight, quickWidth) : bubbleBounds(bounds, area));
 }
 function showBubble(open: boolean, focus = true) {
   showBubbleMode(open ? 'quick' : 'hidden', panelTab, focus);
 }
 function showBubbleMode(mode: BubbleMode, tab: PanelTab = panelTab, focus = true) {
-  bubbleRevision++;
+  quickAwaitingLayout = mode === 'quick';
+  bubbleRevision++; quickWidth = 320; quickBody = null; quickRegions = []; pendingQuickFocus = focus;
+  if (mode === 'quick' && (bubbleMode !== 'quick' || displayedQuickView !== quickView)) {
+    quickHeight = quickView === 'quota' ? 340 : 88;
+    displayedQuickView = quickView;
+  }
   bubbleMode = mode; panelTab = tab; bubbleOpen = mode !== 'hidden';
   assistant.setQuotaVisible(mode === 'quick' && quickView === 'quota');
   if (ignoreBubbleMouse) { ignoreBubbleMouse = false; bubble.setIgnoreMouseEvents(false); }
-  if (bubbleOpen) { pauseRoaming(); positionBubble(); focus ? bubble.show() : bubble.showInactive(); } else bubble.hide();
+  if (bubbleOpen) { pauseRoaming(); if (mode === 'quick') bubble.hide(); positionBubble(); if (mode === 'panel') { focus ? bubble.show() : bubble.showInactive(); } } else bubble.hide();
   outsideClickMonitor?.setQuickVisible(mode === 'quick' && bubble.isVisible());
   publish();
 }
@@ -170,7 +193,7 @@ function tick() {
   const hit = draggingUntil > now || spriteHit(cursor.x - bounds.x, cursor.y - bounds.y, bounds.width, bounds.height);
   if (ignoreMouse === hit) { ignoreMouse = !hit; pet.setIgnoreMouseEvents(ignoreMouse, { forward: true }); }
   if (bubbleOpen && bubbleMode === 'quick') {
-    const rect = bubble.getBounds(), inside = quickBubbleHit(quickShape(), cursor.x - rect.x, cursor.y - rect.y);
+    const rect = bubble.getBounds(), inside = bubbleHit(cursor.x - rect.x, cursor.y - rect.y);
     if (ignoreBubbleMouse === inside) { ignoreBubbleMouse = !inside; bubble.setIgnoreMouseEvents(ignoreBubbleMouse, { forward: true }); }
   }
   const roamingMotion = roamingAnimationMotion(skin?.manifest);
@@ -203,30 +226,35 @@ function petMenu() {
     { label: '设置与授权范围', click: () => openPanel('settings') },
     { label: '历史记录', click: () => openPanel('history') }, { type: 'separator' },
     { label: '暂停活动', type: 'checkbox', enabled: !!roamingAnimationMotion(skin?.manifest), checked: !settings.value.roaming || !roamingAnimationMotion(skin?.manifest), click: item => { settings.update({ roaming: !item.checked }); pauseRoaming(); publish(); } },
-    { label: '停止任务', enabled: !!assistant.getSnapshot().activeTurnId, click: () => void assistant.stop() },
+    { label: '停止任务', enabled: !!assistant.getSnapshot().activeTurnId || ['preparing', 'needs-response'].includes(projects?.getSnapshot()?.status ?? ''), click: () => { projects.stop(); void assistant.stop(); } },
     { label: pet.isVisible() ? '隐藏桌宠' : '显示桌宠', click: () => { userHidden = pet.isVisible(); if (userHidden) { pet.hide(); showBubbleMode('hidden'); } else pet.showInactive(); publish(); } },
     { type: 'separator' }, { label: '退出', click: () => app.quit() },
   ]);
 }
 function installHandlers() {
   handle('pet:state', () => snapshot());
-  handle('pet:send', async (text: unknown) => { if (typeof text !== 'string' || !text.trim() || text.length > 32000) throw new Error('请输入 1–32000 字的消息。'); await submitFromComposer(() => assistant.send(text.trim())); });
+  handle('pet:send', async (text: unknown) => { if (typeof text !== 'string' || !text.trim() || text.length > 32000) throw new Error('请输入 1–32000 字的消息。'); await submitFromComposer(() => /(?:继续|接着|接续).{0,12}(?:桌宠|DragonBot|龙娘).{0,5}项目/i.test(text) ? projects.continueDefault(text.trim()) : assistant.send(text.trim())); });
   handle('pet:answer', (payload: AnswerPayload) => { if (!payload || typeof payload.id !== 'string' || !payload.answers || typeof payload.answers !== 'object') throw new Error('回答格式无效。'); return submitFromComposer(() => assistant.answer(payload)); });
   handle('pet:approve', (id: string, decision: ApprovalDecision) => { if (typeof id !== 'string' || !['allow', 'deny', 'stop', 'session'].includes(decision)) throw new Error('批准请求格式无效。'); return assistant.approve(id, decision); });
-  handle('pet:stop', () => assistant.stop());
+  handle('pet:stop', () => { projects.stop(); return assistant.stop(); });
   handle('pet:new-thread', async () => { if (assistant.getSnapshot().activeTurnId) throw new Error('请先停止当前任务。'); settings.update({ grant: { ...settings.value.grant, folders: [] } }); await assistant.newThread(); publish(); });
   handle('pet:resume-thread', async (id: string) => { if (typeof id !== 'string' || id.length > 200) throw new Error('会话编号无效。'); if (assistant.getSnapshot().activeTurnId) throw new Error('请先停止当前任务。'); settings.update({ grant: { ...settings.value.grant, folders: [] } }); await assistant.resumeThread(id); publish(); });
   handle('pet:settings', async (patch: Partial<Settings>) => {
     if (!patch || typeof patch !== 'object') throw new Error('设置无效。');
-    if (['grant', 'codexPath', 'model', 'reasoningByModel', 'chromeExecutablePath', 'chromeUserDataDir', 'chromeProfileDirectory'].some(key => key in patch) && assistant.getSnapshot().activeTurnId) throw new Error('任务执行时不能更改授权范围或助手配置；请先停止任务。');
+    if (['projects', 'activeProjectId', 'projectReadAccess', 'grant', 'codexPath', 'model', 'reasoningByModel', 'chromeExecutablePath', 'chromeUserDataDir', 'chromeProfileDirectory'].some(key => key in patch) && assistant.getSnapshot().activeTurnId) throw new Error('任务执行时不能更改授权范围或助手配置；请先停止任务。');
     const safePatch = { ...patch }; delete safePatch.skinPath;
+    if (safePatch.projects) for (const project of safePatch.projects) {
+      if (typeof project.directory !== 'string' || !path.isAbsolute(project.directory) || !(await stat(project.directory)).isDirectory()) throw new Error('请选择存在的项目文件夹。');
+      project.directory = await realpath(project.directory);
+      const thread = await assistant.readProjectThread(project.threadId); if (!thread.name || thread.name !== project.threadTitle) throw new Error('原对话标题不匹配，请重新查找并关联。');
+    }
     if (['chromeExecutablePath', 'chromeUserDataDir', 'chromeProfileDirectory'].some(key => key in patch && patch[key as keyof Settings] !== settings.value[key as keyof Settings])) await tools.disconnectBrowser();
-    const oldPath = settings.value.codexPath; settings.update(safePatch);
+    const oldReadAccess = settings.value.projectReadAccess; const oldPath = settings.value.codexPath; settings.update(safePatch);
     pet.setAlwaysOnTop(settings.value.alwaysOnTop, 'floating'); bubble.setAlwaysOnTop(settings.value.alwaysOnTop, 'floating');
     const width = Math.round(200 * settings.value.scale), height = Math.round(240 * settings.value.scale), bounds = pet.getBounds();
     if (bounds.width !== width || bounds.height !== height) pet.setSize(width, height);
     ensureVisible();
-    if (oldPath !== settings.value.codexPath) await assistant.reconnect();
+    if (oldPath !== settings.value.codexPath || oldReadAccess !== settings.value.projectReadAccess) await assistant.reconnect();
     if (['chromeExecutablePath', 'chromeUserDataDir', 'chromeProfileDirectory'].some(key => key in patch)) await browserSetup.detect();
     publish();
   });
@@ -246,6 +274,20 @@ function installHandlers() {
   handle('pet:reply-show', showReply);
   handle('pet:quota-refresh', () => assistant.refreshQuota());
   handle('pet:context-menu', () => { petMenu().popup({ window: pet }); });
+  handle('pet:quick-layout', (layout: QuickLayoutRequest) => {
+    if (bubbleMode !== 'quick' || layout?.id !== bubbleRevision) return;
+    const maxWidth = quickLayoutContext().maxWidth;
+    if (![layout.width, layout.height, ...Object.values(layout.body ?? {})].every(Number.isFinite) || layout.width < 80 || layout.width > maxWidth || layout.height < 88 || layout.height > 360 || !Array.isArray(layout.regions) || layout.regions.length > 30) throw new Error('气泡布局无效。');
+    const fits = (rect: {x: number;y: number;width: number;height: number}) => [rect.x,rect.y,rect.width,rect.height].every(Number.isFinite) && rect.x >= 0 && rect.y >= 0 && rect.width >= 0 && rect.height >= 0 && rect.x + rect.width <= layout.width + 1 && rect.y + rect.height <= layout.height + 1;
+    if (!fits(layout.body) || layout.regions.some(rect => !fits(rect) || !Number.isFinite(rect.radius))) throw new Error('气泡布局超出窗口。');
+    quickWidth = layout.width; quickHeight = quickView === 'quota' ? 340 : layout.height; quickBody = layout.body; quickRegions = layout.regions;
+    positionBubble(); publish();
+  });
+  handle('pet:quick-ready', (id: number) => {
+    if (bubbleMode !== 'quick' || id !== bubbleRevision || !quickBody || userHidden) return;
+    quickAwaitingLayout = false;
+    if (!bubble.isVisible()) { pendingQuickFocus ? bubble.show() : bubble.showInactive(); outsideClickMonitor?.setQuickVisible(true); }
+  });
   handle('pet:quick-height', (height: number) => { if (bubbleMode !== 'quick' || !Number.isFinite(height)) return; const next = Math.max(88, Math.min(360, Math.ceil(height))); if (quickHeight !== next) { quickHeight = next; positionBubble(); publish(); } });
   handle('pet:drag', (dx: number, dy: number) => {
     if (![dx, dy].every(Number.isFinite) || Math.abs(dx) > 2000 || Math.abs(dy) > 2000) return;
@@ -254,11 +296,17 @@ function installHandlers() {
     const dropped = clampRect(candidate, screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea);
     pet.setBounds(dropped); pauseRoaming(dropped); if (bubbleOpen) positionBubble(); publish();
   });
+  handle('pet:projects-discover', () => projects.discover());
+  handle('pet:project-open', (id: string) => projects.open(id));
+  handle('pet:project-continue', (id: string, prompt: string) => projects.send(id, prompt));
+  handle('pet:project-refresh', () => projects.refresh());
+  handle('pet:project-not-sent', () => projects.confirmNotSent());
+  handle('pet:browser-show', () => tools.showBrowser());
+  handle('pet:browser-reconnect', async () => { await tools.disconnectBrowser(); await tools.connectBrowser(await browserSetup.getConnectionConfig()); });
   handle('pet:browser-detect', () => browserSetup.detect());
   handle('pet:browser-profile', async (id: string) => { if (assistant.getSnapshot().activeTurnId) throw new Error('请先停止当前任务，再切换 Chrome 用户。'); if (id !== browserSetup.getSnapshot().selectedProfileId) await tools.disconnectBrowser(); return browserSetup.select(id); });
   handle('pet:browser-install', () => browserSetup.install());
   handle('pet:connect-browser', async () => {
-    if (!settings.value.grant.origins.length) throw new Error('请先在长期网站授权中添加网站，再连接该网站的 Chrome 标签页。');
     const config = await browserSetup.getConnectionConfig();
     try { await tools.connectBrowser(config); browserSetup.setConnectionState('connected'); }
     catch (error) { browserSetup.setConnectionState('failed', error instanceof Error ? error.message : 'Chrome 连接未完成，请重新检测后再试。'); throw error; }
@@ -292,12 +340,14 @@ async function main() {
       return new Response(bytes, { headers: { 'Content-Type': frame.endsWith('.webp') ? 'image/webp' : 'image/png' } });
     } catch { return new Response('', { status: 404 }); }
   });
-  browserSetup = new BrowserSetupService({ getSettings: () => settings.value, updateSettings: patch => { settings.update(patch); publish(); }, openExternal, onChange: () => publish() });
-  tools = new ToolHost({ getGrant: () => structuredClone(settings.value.grant), getTaskId: () => assistant?.getSnapshot().activeTurnId ?? null, requestApproval: input => assistant.requestApproval(input), onBrowserChange: status => { assistant?.setBrowserStatus(status); browserSetup.setConnectionState(status); } });
+  browserSetup = new BrowserSetupService({ independentDataDir: dataDir, getSettings: () => settings.value, updateSettings: patch => { settings.update(patch); publish(); }, openExternal, onChange: () => publish() });
+  tools = new ToolHost({ getGrant: () => { const project = activeProject(settings.value); return structuredClone({ ...settings.value.grant, folders: [...new Set([...settings.value.grant.folders, ...(project ? [project.directory] : [])])] }); }, getTaskId: () => assistant?.getSnapshot().activeTurnId ?? null, requestApproval: input => assistant.requestApproval(input), onBrowserChange: status => { assistant?.setBrowserStatus(status); browserSetup.setConnectionState(status); } }, { browser: { getConfig: () => browserSetup.getConnectionConfig() } });
   assistant = new AssistantService({ dataDir, getSettings: () => settings.value, toolHost: tools, openExternal });
+  projects = new ProjectService({ dataDir, helperPath: path.join(app.getAppPath().replace(/\.asar$/i, '.asar.unpacked'), 'dist/native/desktop-chat.exe'), getSettings: () => settings.value, saveSettings: patch => { settings.update(patch); publish(); }, listThreads: () => assistant.listProjectThreads(), readThread: id => assistant.readProjectThread(id), uniqueTitle: (id, title) => assistant.uniqueProjectTitle(id, title), openLink: async url => { if (!/^codex:\/\/threads\/[0-9a-f-]{36}$/i.test(url)) throw new Error('对话链接无效。'); await shell.openExternal(url); }, choose: (question, choices) => assistant.chooseLocal(question, choices), notify: text => assistant.notifyLocal(text), changed: () => publish() });
+  await projects.initialize();
   const securePreferences = { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true };
   pet = new BrowserWindow({ width: Math.round(200 * settings.value.scale), height: Math.round(240 * settings.value.scale), frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false, resizable: false, skipTaskbar: true, focusable: false, show: false, webPreferences: securePreferences });
-  bubble = new BrowserWindow({ width: 440, height: 680, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false, resizable: false, skipTaskbar: true, show: false, webPreferences: securePreferences });
+  bubble = new BrowserWindow({ width: 440, height: 680, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false, resizable: false, skipTaskbar: true, show: false, webPreferences: { ...securePreferences, backgroundThrottling: false } });
   const pointInside = (point: { x: number; y: number }, bounds: Electron.Rectangle) => point.x >= bounds.x && point.y >= bounds.y && point.x < bounds.x + bounds.width && point.y < bounds.y + bounds.height;
   const pointOnPet = (point: { x: number; y: number }) => { const bounds = pet.getBounds(); return pet.isVisible() && pointInside(point, bounds) && spriteHit(point.x - bounds.x, point.y - bounds.y, bounds.width, bounds.height); };
   outsideClickMonitor = new QuickOutsideClickMonitor({
@@ -306,7 +356,7 @@ async function main() {
       if (bubbleMode !== 'quick' || !bubble.isVisible()) return;
       const point = screen.screenToDipPoint({ x, y });
       const rect = bubble.getBounds();
-      const target = quickBubbleHit(quickShape(), point.x - rect.x, point.y - rect.y) ? 'bubble' : pointOnPet(point) ? 'pet' : 'outside';
+      const target = bubbleHit(point.x - rect.x, point.y - rect.y) ? 'bubble' : pointOnPet(point) ? 'pet' : 'outside';
       if (shouldDismissQuickClick(bubbleMode, target)) showBubbleMode('hidden');
     },
     onUnavailable: message => console.warn(message),
@@ -323,7 +373,9 @@ async function main() {
   pauseRoaming(pet.getBounds(), 4000);
   installHandlers();
   assistant.on('change', () => {
-    const activity = assistant.getSnapshot().activity;
+    const current = assistant.getSnapshot(), activity = current.activity, pendingId = current.pending[0]?.id ?? null;
+    if (pendingId && pendingId !== lastPendingId && !userHidden && pet.isVisible() && bubbleMode === 'quick' && quickView === 'compose') { quickView = 'chat'; showBubbleMode('quick', panelTab, false); }
+    lastPendingId = pendingId;
     if (!userHidden && pet.isVisible() && bubbleMode === 'hidden' && activity !== lastActivity && ['awaiting-input', 'awaiting-approval', 'error'].includes(activity)) {
       quickView = 'chat';
       showBubbleMode('quick', panelTab, false);
@@ -340,7 +392,7 @@ async function main() {
   screen.on('display-removed', ensureVisible); screen.on('display-metrics-changed', ensureVisible);
   pet.on('move', () => { if (bubbleOpen) { positionBubble(); publish(); } });
   bubble.on('close', event => { if (!shuttingDown) { event.preventDefault(); showBubble(false); } });
-  bubble.on('blur', () => { if (bubbleMode === 'quick' && !pointOnPet(screen.getCursorScreenPoint())) showBubbleMode('hidden'); });
+  bubble.on('blur', () => { if (bubbleMode === 'quick' && !quickAwaitingLayout && !pointOnPet(screen.getCursorScreenPoint())) showBubbleMode('hidden'); });
   app.on('second-instance', () => { userHidden = false; quickView = 'chat'; pet.showInactive(); showBubbleMode('quick'); });
   if (smoke) {
     pet.showInactive();
@@ -361,7 +413,7 @@ app.on('before-quit', event => {
   event.preventDefault(); shuttingDown = true;
   if (timer) clearInterval(timer);
   outsideClickMonitor?.dispose();
-  void Promise.allSettled([assistant?.dispose(), tools?.dispose()]).finally(() => app.quit());
+  void Promise.allSettled([projects?.dispose(), assistant?.dispose(), tools?.dispose()]).finally(() => app.quit());
   setTimeout(() => app.exit(0), 4000).unref();
 });
 app.on('window-all-closed', () => { if (shuttingDown) app.quit(); });

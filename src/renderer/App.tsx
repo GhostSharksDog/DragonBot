@@ -3,12 +3,12 @@ import type { AppSnapshot, ApprovalDecision, ApprovalRequest, ModelInfo, Pending
 import { skinFrameLayout, skinRegionClipPath } from '../shared/types';
 import { Egg, Icon, type IconName } from './icons';
 import { activityLabels, Pet } from './Pet';
-import { QuickBubble } from './QuickBubble';
+import { QuickBubble, QuickBubbleFrame } from './QuickBubble';
 import { QuotaBubble } from './QuotaBubble';
+import { ProjectSettings } from './ProjectSettings';
 import { RigCanvas } from './RigCanvas';
 import type { RigPlayback } from '../shared/rig';
 
-const extensionUrl = 'https://github.com/microsoft/playwright/tree/main/packages/extension#readme';
 const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
 
 function useSnapshot() {
@@ -122,7 +122,12 @@ function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
     input.style.height = `${Math.min(108, input.scrollHeight)}px`;
   }, [draft, mode]);
 
-  const reply = [...assistant.messages].reverse().find(message => message.role === 'assistant') ?? null;
+  const assistantReply = [...assistant.messages].reverse().find(message => message.role === 'assistant') ?? null;
+  const handoff = snapshot.projectHandoff;
+  const lastMessageAt = [...assistant.messages].reverse().find(message => message.role === 'user')?.createdAt ?? 0;
+  const reply = handoff?.message && !active && (handoff.startedAt ?? handoff.updatedAt) >= lastMessageAt
+    ? { id: handoff.id, role: 'assistant' as const, text: handoff.message, createdAt: handoff.updatedAt }
+    : assistantReply;
   useEffect(() => { setExpandedReply(false); }, [reply?.id]);
   const lastThread = useRef(assistant.threadId);
   useEffect(() => {
@@ -163,8 +168,9 @@ function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
     const pending = assistant.pending[0];
     const questionStep = pending?.kind === 'question' ? Math.max(0, Math.min(questionDrafts[pending.id]?.step ?? 0, pending.questions.length - 1)) : 0;
     const question = pending?.kind === 'question' ? pending.questions[questionStep] : null;
+    if (pending?.kind === 'question' && snapshot.quickView !== 'compose') return <QuestionBubbles snapshot={snapshot} request={pending} draft={questionDrafts[pending.id] ?? { values: {}, custom: {}, step: 0 }} onDraft={next => setQuestionDrafts(current => ({ ...current, [pending.id]: next }))} locked={busy.has(`request:${pending.id}`) || done.has(pending.id)} answer={answers => respond(pending.id, () => window.pet.answer({ id: pending.id, answers }))} />;
     const questionPrompt = question ? <div className="quick-question-prompt"><p className="quick-reply-text">{question.question}</p><p className="quick-status">点击旁边的聊天图标回答。{pending?.kind === 'question' && pending.questions.length > 1 ? `（${questionStep + 1}/${pending.questions.length}）` : ''}</p></div> : null;
-    return <QuickBubble shape={snapshot.quickShape} compose={snapshot.quickView === 'compose'} draft={draft} setDraft={setDraft} inputRef={composer} reply={reply} expanded={expandedReply} setExpanded={setExpandedReply} interaction={pending ? interaction(pending, true) : null} questionPrompt={questionPrompt} interactionCount={assistant.pending.length} approval={pending?.kind === 'approval'} connected={assistant.connected} active={active} thinking={active && assistant.activity === 'thinking'} sending={busy.has('send')} error={error || assistant.error} status={status} send={send} close={() => { void perform('collapse', () => window.pet.setBubbleMode('hidden')); }} />;
+    return <QuickBubble layout={snapshot.quickLayout} shape={snapshot.quickShape} compose={snapshot.quickView === 'compose'} draft={draft} setDraft={setDraft} inputRef={composer} reply={reply} expanded={expandedReply} setExpanded={setExpandedReply} interaction={pending ? interaction(pending, true) : null} questionPrompt={questionPrompt} interactionCount={assistant.pending.length} approval={pending?.kind === 'approval'} connected={assistant.connected} active={active} thinking={active && assistant.activity === 'thinking'} sending={busy.has('send')} error={error || assistant.error} status={status} send={send} close={() => { void perform('collapse', () => window.pet.setBubbleMode('hidden')); }} />;
   }
 
   return <main className="bubble-shell">
@@ -201,7 +207,7 @@ function Bubble({ snapshot }: { snapshot: AppSnapshot }) {
         {assistant.pending.map(request => interaction(request, false))}
       </div>
       <div className="composer-area">
-        <div className="scope-line"><button onClick={() => chooseTab('settings')} title="查看本次任务可用范围"><Icon name="shield" size={13} />任务范围<span>{settings.grant.folders.length} 个文件夹 · {settings.grant.origins.length} 个网站</span></button><button className={assistant.browser === 'connected' ? 'browser-ready' : ''} disabled={assistant.browser === 'connecting' || busy.has('browser')} onClick={() => { void perform('browser', () => window.pet.connectBrowser()); }} title="连接 Chrome；首次连接需选择标签页"><Icon name="globe" size={13} />{assistant.browser === 'connected' ? 'Chrome 已连接' : assistant.browser === 'connecting' ? '连接中…' : '连接 Chrome'}</button></div>
+        <div className="scope-line"><button onClick={() => chooseTab('settings')} title="查看本次任务可用范围"><Icon name="shield" size={13} />任务范围<span>{settings.grant.folders.length} 个文件夹 · {settings.grant.origins.length} 个网站</span></button><button className={assistant.browser === 'connected' ? 'browser-ready' : ''} disabled={assistant.browser === 'connecting' || busy.has('browser')} onClick={() => { void perform('browser', () => window.pet.connectBrowser()); }} title="打开桌宠的独立 Chrome；首次使用需在独立窗口登录"><Icon name="globe" size={13} />{assistant.browser === 'connected' ? 'Chrome 已连接' : assistant.browser === 'connecting' ? '连接中…' : '连接 Chrome'}</button></div>
         <div className="composer"><textarea ref={composer} value={draft} rows={2} aria-label="对龙娘说点什么" placeholder={active ? '还想补充什么？' : '对龙娘说点什么，或交给我一件事…'} maxLength={50000} onChange={event => setDraft(event.target.value)} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
           if (event.key === 'Enter' && !event.shiftKey && !composing.current && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); void send(); }
         }} />
@@ -227,6 +233,30 @@ function MessageBody({ text, openExternal }: { text: string; openExternal(url: s
 }
 
 interface QuestionDraft { values: Record<string, string>; custom: Record<string, boolean>; step: number }
+function QuestionBubbles({ snapshot, request, draft, onDraft, locked, answer }: { snapshot: AppSnapshot; request: QuestionRequest; draft: QuestionDraft; onDraft(draft: QuestionDraft): void; locked: boolean; answer(answers: Record<string, string[]>): Promise<boolean> }) {
+  const step = Math.min(draft.step, request.questions.length - 1), question = request.questions[step];
+  const submitting = useRef(false);
+  const [error, setError] = useState('');
+  useEffect(() => { submitting.current = false; setError(''); }, [request.id, step]);
+  async function select(value: string) {
+    if (locked || submitting.current) return;
+    submitting.current = true;
+    const values = { ...draft.values, [question.id]: value };
+    const next = { ...draft, values, custom: { ...draft.custom, [question.id]: false }, step: Math.min(step + 1, request.questions.length - 1) };
+    onDraft(next);
+    if (step < request.questions.length - 1) return;
+    const missing = request.questions.findIndex(item => !values[item.id]?.trim());
+    if (missing >= 0) { onDraft({ ...next, step: missing }); return; }
+    try { if (!await answer(Object.fromEntries(request.questions.map(item => [item.id, [values[item.id].trim()]])))) submitting.current = false; }
+    catch (reason) { setError(errorText(reason)); submitting.current = false; }
+  }
+  return <QuickBubbleFrame shape={snapshot.quickShape} layout={snapshot.quickLayout} close={() => { void window.pet.setBubbleMode('hidden'); }} choices={question.options?.length ? <>{question.options.map((option, index) => <button key={`${question.id}-${index}`} className="choice-bubble" disabled={locked} aria-pressed={draft.values[question.id] === option.label} title={option.description} onClick={event => { if (event.detail < 2) void select(option.label); }}><strong>{option.label}</strong>{option.description && <small>{option.description}</small>}</button>)}</> : undefined}>
+    <div className="quick-question-prompt"><p className="quick-reply-text">{question.question}</p></div>
+    {request.questions.length > 1 && <div className="question-progress"><span>{step + 1} / {request.questions.length}</span>{step > 0 && <button className="text-button" disabled={locked} onClick={() => onDraft({ ...draft, step: step - 1 })}>上一题</button>}</div>}
+    {!question.options?.length && <p className="quick-status">点聊天图标输入回答。</p>}
+    {locked && <p className="quick-status">正在提交…</p>}{error && <p className="quick-error">{error}</p>}
+  </QuickBubbleFrame>;
+}
 function Interaction({ request, locked, compact, draft, onDraft, onApprove, onAnswer }: { request: PendingInteraction; locked: boolean; compact: boolean; draft: QuestionDraft; onDraft(draft: QuestionDraft): void; onApprove(decision: ApprovalDecision): Promise<boolean>; onAnswer(answers: Record<string, string[]>): Promise<boolean> }) {
   if (request.kind === 'approval') return <ApprovalCard request={request} locked={locked} compact={compact} approve={onApprove} />;
   return <QuestionCard request={request} locked={locked} compact={compact} draft={draft} onDraft={onDraft} answer={onAnswer} />;
@@ -243,7 +273,7 @@ function QuestionCard({ request, locked, compact, draft, onDraft, answer }: { re
   const ready = request.questions.every(question => Boolean(values[question.id]?.trim()));
   const currentReady = Boolean(values[request.questions[step]?.id]?.trim());
   const submit = () => { if (ready) void answer(Object.fromEntries(request.questions.map(question => [question.id, [values[question.id].trim()]]))); };
-  return <section className="interaction-card question-card" aria-label="等待回答"><div className="interaction-label"><Icon name="spark" size={15} />想和你确认<span>{compact && request.questions.length > 1 ? `${step + 1} / ${request.questions.length}` : '等待回应'}</span></div><h3>{request.title || '有件事想问你'}</h3>{request.questions.map((question, index) => !compact || index === step ? <fieldset key={question.id} disabled={locked}><legend>{request.questions.length > 1 && <span className="question-number">{index + 1}</span>}{question.header || '请告诉我'}</legend><p>{question.question}</p>{question.options && <div className="question-options">{question.options.map((option, i) => <label className={values[question.id] === option.label && !custom[question.id] ? 'chosen' : ''} key={`${option.label}-${i}`}><input type="radio" name={`${request.id}-${question.id}`} value={option.label} checked={values[question.id] === option.label && !custom[question.id]} onChange={() => onDraft({ ...draft, values: { ...values, [question.id]: option.label }, custom: { ...custom, [question.id]: false } })} /><span><strong>{option.label}</strong>{option.description && <small>{option.description}</small>}</span><Icon name="check" size={15} /></label>)}</div>}<input className="field-input custom-answer" aria-label={`${question.header || '问题'}的文字回答`} type={question.isSecret ? 'password' : 'text'} value={custom[question.id] || !question.options?.length ? values[question.id] ?? '' : ''} placeholder={question.options?.length ? '或者，输入你的想法…' : '在这里写下回答…'} autoComplete="off" onChange={event => onDraft({ ...draft, custom: { ...custom, [question.id]: true }, values: { ...values, [question.id]: event.target.value } })} /></fieldset> : null)}<div className="question-navigation">{compact && step > 0 && <button className="button" disabled={locked} onClick={() => onDraft({ ...draft, step: step - 1 })}>上一题</button>}{compact && step < request.questions.length - 1 ? <button className="button primary answer-button" disabled={locked || !currentReady} onClick={() => onDraft({ ...draft, step: step + 1 })}>下一题<Icon name="arrow" size={15} /></button> : <button className="button primary answer-button" disabled={locked || !ready} onClick={submit}>{locked ? '正在提交…' : '回答并继续'}<Icon name="arrow" size={15} /></button>}</div></section>;
+  return <section className="interaction-card question-card" aria-label="等待回答"><div className="interaction-label"><Icon name="spark" size={15} />想和你确认<span>{compact && request.questions.length > 1 ? `${step + 1} / ${request.questions.length}` : '等待回应'}</span></div><h3>{request.title || '有件事想问你'}</h3>{request.questions.map((question, index) => !compact || index === step ? <fieldset key={question.id} disabled={locked}><legend>{request.questions.length > 1 && <span className="question-number">{index + 1}</span>}{question.header || '请告诉我'}</legend><p>{question.question}</p>{question.options && <div className="question-options">{question.options.map((option, i) => <button type="button" aria-pressed={values[question.id] === option.label && !custom[question.id]} className={values[question.id] === option.label && !custom[question.id] ? 'chosen' : ''} key={`${option.label}-${i}`} onClick={() => onDraft({ ...draft, values: { ...values, [question.id]: option.label }, custom: { ...custom, [question.id]: false } })}><span><strong>{option.label}</strong>{option.description && <small>{option.description}</small>}</span><Icon name="check" size={15} /></button>)}</div>}<input className="field-input custom-answer" aria-label={`${question.header || '问题'}的文字回答`} type={question.isSecret ? 'password' : 'text'} value={custom[question.id] || !question.options?.length ? values[question.id] ?? '' : ''} placeholder={question.options?.length ? '或者，输入你的想法…' : '在这里写下回答…'} autoComplete="off" onChange={event => onDraft({ ...draft, custom: { ...custom, [question.id]: true }, values: { ...values, [question.id]: event.target.value } })} /></fieldset> : null)}<div className="question-navigation">{compact && step > 0 && <button className="button" disabled={locked} onClick={() => onDraft({ ...draft, step: step - 1 })}>上一题</button>}{compact && step < request.questions.length - 1 ? <button className="button primary answer-button" disabled={locked || !currentReady} onClick={() => onDraft({ ...draft, step: step + 1 })}>下一题<Icon name="arrow" size={15} /></button> : <button className="button primary answer-button" disabled={locked || !ready} onClick={submit}>{locked ? '正在提交…' : '回答并继续'}<Icon name="arrow" size={15} /></button>}</div></section>;
 }
 
 function SettingsView({ snapshot, busy, update, perform, openExternal }: { snapshot: AppSnapshot; busy: Set<string>; update(patch: Partial<Settings>): Promise<boolean>; perform(key: string, operation: () => Promise<unknown>): Promise<boolean>; openExternal(url: string): void }) {
@@ -275,36 +305,24 @@ function SettingsView({ snapshot, busy, update, perform, openExternal }: { snaps
     <div className="section-heading"><span className="eyebrow">刚刚好的陪伴</span><h2>桌宠与任务设置</h2></div>
     <section className="setting-section"><div className="setting-title"><Icon name="image" size={17} /><h3>我的形象</h3></div><div className="skin-setting"><SkinThumbnail skin={snapshot.skin} className="settings-character" /><div><strong>{snapshot.skin?.manifest.name ?? '临时龙蛋'}</strong><span>{snapshot.skin ? '已载入角色动画' : '尚未载入角色动画，请导入可用素材'}</span></div><button className="button small" disabled={busy.has('skin')} onClick={() => { void perform('skin', () => window.pet.importSkin()); }}>导入动画</button></div><div className="range-setting"><label htmlFor="pet-scale">桌宠大小 <span>{Math.round(scale * 100)}%</span></label><input id="pet-scale" aria-label="桌宠大小" type="range" min="0.65" max="1.6" step="0.05" value={scale} disabled={busy.has('settings')} onPointerDown={() => { adjustingScale.current = true; }} onChange={event => { setScale(Number(event.target.value)); }} onPointerUp={() => { adjustingScale.current = false; void update({ scale }); }} onKeyUp={() => { void update({ scale }); }} onBlur={() => { adjustingScale.current = false; if (scale !== settings.scale) void update({ scale }); }} /></div><Toggle label="自由走跑" hint="聊天、回答或等待批准时会停下" value={settings.roaming} disabled={busy.has('settings')} onChange={value => { void update({ roaming: value }); }} /><Toggle label="留在其他窗口上方" value={settings.alwaysOnTop} disabled={busy.has('settings')} onChange={value => { void update({ alwaysOnTop: value }); }} /></section>
     <section className="setting-section"><div className="setting-title"><Icon name="shield" size={17} /><h3>任务可以去哪里</h3><span>网站长期保存</span></div><p className="field-hint">文件夹按当前任务授权；网站与网页输入设置保存在本机，重启后仍有效。删除、覆盖和重要提交会再问你。</p>{active && <p className="scope-locked">当前任务进行中，结束后可调整范围。</p>}<div className="field-heading">文件夹<button className="text-button" disabled={scopeDisabled || busy.has('folder')} onClick={() => { void addFolder(); }}><Icon name="plus" size={13} />添加</button></div>{settings.grant.folders.length ? <ul className="scope-list">{settings.grant.folders.map(folder => <li key={folder}><Icon name="folder" size={14} /><span title={folder}>{folder}</span><button aria-label={`移除文件夹 ${folder}`} disabled={scopeDisabled} onClick={() => { void update({ grant: { ...settings.grant, folders: settings.grant.folders.filter(value => value !== folder) } }); }}><Icon name="close" size={13} /></button></li>)}</ul> : <p className="scope-empty">暂未开放文件夹</p>}<div className="field-heading">网站</div><ul className="scope-list">{settings.grant.origins.map(site => <li key={site}><Icon name="globe" size={14} /><span>{site}</span><button aria-label={`移除网站 ${site}`} disabled={scopeDisabled} onClick={() => { void update({ grant: { ...settings.grant, origins: settings.grant.origins.filter(value => value !== site) } }); }}><Icon name="close" size={13} /></button></li>)}</ul><div className="origin-entry"><input className="field-input" aria-label="允许访问的网站地址" value={origin} disabled={scopeDisabled} placeholder="https://example.com" onChange={event => { setOrigin(event.target.value); setOriginError(''); }} onKeyDown={event => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void addOrigin(); } }} /><button className="button small" disabled={scopeDisabled || !origin.trim()} onClick={() => { void addOrigin(); }}>添加</button></div>{originError && <p className="input-error" role="alert">{originError}</p>}</section>
+    <ProjectSettings snapshot={snapshot} disabled={scopeDisabled} update={update} perform={perform} />
     <ChromeSetup snapshot={snapshot} busy={busy} scopeDisabled={scopeDisabled} update={update} perform={perform} openExternal={openExternal} />
     <CodexSettings snapshot={snapshot} busy={busy} update={update} perform={perform} />
   </section>;
 }
 
-function ChromeSetup({ snapshot, busy, scopeDisabled, update, perform, openExternal }: { snapshot: AppSnapshot; busy: Set<string>; scopeDisabled: boolean; update(patch: Partial<Settings>): Promise<boolean>; perform(key: string, operation: () => Promise<unknown>): Promise<boolean>; openExternal(url: string): void }) {
-  const { settings } = snapshot;
-  const setup = snapshot.browserSetup;
-  const [executable, setExecutable] = useState(settings.chromeExecutablePath ?? '');
-  const [userData, setUserData] = useState(settings.chromeUserDataDir ?? '');
-  const [profile, setProfile] = useState(settings.chromeProfileDirectory ?? '');
-  useEffect(() => { setExecutable(settings.chromeExecutablePath ?? ''); setUserData(settings.chromeUserDataDir ?? ''); setProfile(settings.chromeProfileDirectory ?? ''); }, [settings.chromeExecutablePath, settings.chromeUserDataDir, settings.chromeProfileDirectory]);
-  useEffect(() => { if ((!setup || setup.status === 'idle') && window.pet.detectBrowser) void perform('browser-detect', () => window.pet.detectBrowser()); }, []);
-  const pending = setup?.status === 'detecting' || setup?.status === 'awaiting-confirmation' || busy.has('browser') || busy.has('browser-detect') || busy.has('browser-profile');
-  const selected = setup?.profiles.find(item => item.id === setup.selectedProfileId);
-  const connected = setup?.status === 'connected';
-  const labels = { enabled: '扩展已启用', disabled: '扩展已停用', missing: '未安装扩展', unknown: '扩展状态待确认' };
-  async function saveAdvanced() {
-    if (await update({ chromeExecutablePath: executable.trim(), chromeUserDataDir: userData.trim(), chromeProfileDirectory: profile.trim() })) await perform('browser-detect', () => window.pet.detectBrowser());
-  }
-  return <section className="setting-section chrome-setup"><div className="setting-title"><Icon name="globe" size={17} /><h3>日常 Chrome</h3><span className={connected ? 'success-text' : ''}>{connected ? '已连接' : setup?.status === 'awaiting-confirmation' ? '等待你确认' : '连接引导'}</span></div>
-    <p className="field-hint">连接你平时使用的 Chrome，保留网页登录。由你在 Chrome 中选择允许操作的标签页。</p>
-    <ol className="chrome-steps"><li className={setup?.chromeFound ? 'complete' : ''}>检测浏览器</li><li className={selected?.extension === 'enabled' ? 'complete' : ''}>安装官方扩展</li><li className={connected ? 'complete' : ''}>连接并选页</li></ol>
-    <div className={`chrome-status${setup?.status === 'failed' ? ' failed' : ''}`} role="status"><Icon name={connected ? 'check' : setup?.status === 'failed' ? 'shield' : 'globe'} size={16} /><span>{setup?.message ?? '先检测 Chrome，再完成扩展安装和连接。'}</span></div>
-    {Boolean(setup?.profiles.length) && <><label className="field-heading" htmlFor="chrome-profile">使用哪个 Chrome 用户</label><select className="field-input" id="chrome-profile" value={setup?.selectedProfileId ?? ''} disabled={scopeDisabled || pending} onChange={event => { void perform('browser-profile', () => window.pet.selectBrowserProfile(event.target.value)); }}>{setup?.profiles.map(item => <option key={item.id} value={item.id}>{item.name}{item.lastUsed ? ' · 最近使用' : ''} · {labels[item.extension]}</option>)}</select></>}
-    <div className="setting-actions chrome-actions"><button className="button small" disabled={pending || scopeDisabled} onClick={() => { void perform('browser-detect', () => window.pet.detectBrowser()); }}><Icon name="refresh" size={13} />{setup?.status === 'detecting' ? '正在检测…' : '重新检测'}</button><button className="button small" disabled={pending || scopeDisabled || busy.has('browser-install')} onClick={() => { void perform('browser-install', () => window.pet.installBrowserExtension()); }}>{selected?.extension === 'disabled' ? '去启用扩展' : setup?.status === 'missing-browser' ? '安装 Chrome' : '安装官方扩展'}<Icon name="external" size={12} /></button></div>
-    <Toggle label="允许网页输入与选择（可能自动保存）" hint="只在授权网站内操作；点击、提交仍需确认" value={settings.grant.browserInput ?? false} disabled={scopeDisabled} onChange={value => { void update({ grant: { ...settings.grant, browserInput: value } }); }} />
-    {!settings.grant.origins.length && <p className="field-hint">连接前，请先在上方添加允许访问的网站。</p>}
-    <div className="setting-actions"><button className="button primary small" disabled={scopeDisabled || pending || !setup?.canConnect || !settings.grant.origins.length} onClick={() => { void perform('browser', () => window.pet.connectBrowser()); }}>{setup?.status === 'awaiting-confirmation' ? '请到 Chrome 确认并选页…' : connected ? '已连接所选标签页' : '连接并选择标签页'}</button><button className="text-button" onClick={() => openExternal(extensionUrl)}>使用说明<Icon name="external" size={12} /></button></div>
-    <details className="advanced-setting"><summary>Chrome 高级设置<Icon name="chevron" size={12} /></summary><p className="field-hint">通常无需填写。留空时自动查找 Chrome 和最近使用的用户配置。</p><label className="field-heading" htmlFor="chrome-executable">Chrome 程序路径</label><input className="field-input" id="chrome-executable" value={executable} placeholder="自动查找 chrome.exe" disabled={scopeDisabled || pending} onChange={event => setExecutable(event.target.value)} /><label className="field-heading" htmlFor="chrome-user-data">用户数据文件夹</label><input className="field-input" id="chrome-user-data" value={userData} placeholder="自动查找 Chrome User Data" disabled={scopeDisabled || pending} onChange={event => setUserData(event.target.value)} /><label className="field-heading" htmlFor="chrome-profile-directory">配置目录名</label><input className="field-input" id="chrome-profile-directory" value={profile} placeholder="Default 或 Profile 1" disabled={scopeDisabled || pending} onChange={event => setProfile(event.target.value)} /><div className="setting-actions"><button className="button small" disabled={scopeDisabled || pending} onClick={() => { void saveAdvanced(); }}>保存并检测</button></div></details>
+function ChromeSetup({ snapshot, busy, scopeDisabled, update, perform }: { snapshot: AppSnapshot; busy: Set<string>; scopeDisabled: boolean; update(patch: Partial<Settings>): Promise<boolean>; perform(key: string, operation: () => Promise<unknown>): Promise<boolean>; openExternal(url: string): void }) {
+  const {settings,browserSetup:setup}=snapshot;
+  useEffect(() => { if (!setup || setup.status === 'idle') void perform('browser-detect', () => window.pet.detectBrowser()); }, []);
+  const [executable,setExecutable]=useState(settings.chromeExecutablePath || '');
+  const pending=busy.has('browser') || setup?.status==='awaiting-confirmation';
+  return <section className="setting-section chrome-setup"><div className="setting-title"><Icon name="globe" size={17}/><h3>独立 Chrome</h3><span>{snapshot.assistant.browser==='connected'?'已连接':'自动连接'}</span></div>
+    <p className="field-hint">网页任务会自动打开专属浏览器，无需安装扩展。首次登录请在这个窗口完成，以后自动保留。</p>
+    <div className="chrome-status" role="status">{setup?.message || '正在检测浏览器…'}</div>
+    <div className="setting-actions"><button className="button small" disabled={pending} onClick={()=>{void perform('browser',()=>window.pet.showBrowser());}}>显示浏览器</button><button className="button small" disabled={pending || scopeDisabled} onClick={()=>{void perform('browser',()=>window.pet.reconnectBrowser());}}>重新连接</button></div>
+    <Toggle label="允许网页输入与选择（可能自动保存）" hint="授权网站内生效；提交、发送和付款仍需批准" value={settings.grant.browserInput ?? false} disabled={scopeDisabled} onChange={value=>{void update({grant:{...settings.grant,browserInput:value}});}}/>
+    <details><summary>浏览器程序位置</summary><input className="field-input" aria-label="Chrome 程序路径" placeholder="自动检测本机 Chrome" value={executable} disabled={scopeDisabled} onChange={e=>setExecutable(e.target.value)}/><button className="button small" disabled={scopeDisabled} onClick={()=>{void update({chromeExecutablePath:executable.trim()}).then(ok=>{if(ok)void perform('browser-detect',()=>window.pet.detectBrowser());});}}>保存并检测</button></details>
+    {setup?.status==='missing-browser' && <button className="text-button" onClick={()=>{void window.pet.openExternal('https://www.google.com/chrome/');}}>安装 Chrome</button>}
   </section>;
 }
 

@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import type { ChatMessage } from '../shared/types';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import type { ChatMessage, QuickLayoutContext } from '../shared/types';
 import { createQuickBubbleShape, type QuickBubbleShape } from '../shared/bubble-shape';
 import { Icon } from './icons';
 
 interface QuickBubbleProps {
+  layout?: QuickLayoutContext;
   shape?: QuickBubbleShape;
   compose: boolean;
   draft: string;
@@ -26,37 +27,61 @@ interface QuickBubbleProps {
   close(): void;
 }
 
-export function QuickBubbleFrame({ shape: suppliedShape, title, children, footer, actions, close, quota = false, compose = false }: { shape?: QuickBubbleShape; title?: string; children: ReactNode; footer?: ReactNode; actions?: ReactNode; close(): void; quota?: boolean; compose?: boolean }) {
+export function QuickBubbleFrame({ shape: suppliedShape, layout, choices, title, children, footer, actions, close, quota = false, compose = false }: { shape?: QuickBubbleShape; layout?: QuickLayoutContext; choices?: ReactNode; title?: string; children: ReactNode; footer?: ReactNode; actions?: ReactNode; close(): void; quota?: boolean; compose?: boolean }) {
   const [viewport, setViewport] = useState({ width: innerWidth, height: innerHeight });
   const header = useRef<HTMLElement>(null), body = useRef<HTMLDivElement>(null), bottom = useRef<HTMLDivElement>(null);
-  const lastHeight = useRef(0);
+  const choiceRef = useRef<HTMLDivElement>(null);
+  const lastLayout = useRef('');
+  const [measured, setMeasured] = useState({ body: quota ? 340 : 88, choices: 0 });
+  const [choiceScroll, setChoiceScroll] = useState(0);
   useEffect(() => { const resize = () => setViewport({ width: innerWidth, height: innerHeight }); window.addEventListener('resize', resize); return () => window.removeEventListener('resize', resize); }, []);
-  const shape = suppliedShape ?? createQuickBubbleShape(viewport.width, viewport.height, { x: -20, y: viewport.height * .7 });
-  const insetHeight = viewport.height - shape.content.height;
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
+  const beside = Boolean(choices) && (layout?.maxWidth ?? 320) >= 550;
+  const width = beside ? 550 : Math.min(320, layout?.maxWidth ?? viewport.width);
+  const bodyX = beside && layout?.optionsSide === 'left' ? 230 : 0;
+  const totalHeight = quota ? 340 : Math.min(360, beside ? Math.max(measured.body, measured.choices + 12) : measured.body + (choices ? measured.choices + 8 : 0));
+  const bodyHeight = Math.min(measured.body, choices && !beside ? Math.max(88, 360 - Math.min(measured.choices + 8, 250)) : 360);
+  const head = { x: suppliedShape?.tail[1].x === 3 ? -20 : 900, y: suppliedShape ? suppliedShape.tail[1].y - 5 : bodyHeight * .7 };
+  const shape = !layout && suppliedShape ? suppliedShape : createQuickBubbleShape(beside ? 320 : width, Math.min(bodyHeight, viewport.height), head);
+  const choicesTop = beside ? 6 : bodyHeight;
+  const choicesLeft = beside ? (bodyX ? 14 : 314) : 14;
+  useLayoutEffect(() => {
+    let frame = 0;
     const measure = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
         const headerHeight = header.current?.getBoundingClientRect().height ?? 0;
         const footerHeight = bottom.current?.getBoundingClientRect().height ?? 0;
         const natural = headerHeight + (body.current?.getBoundingClientRect().height ?? 0) + footerHeight + (headerHeight ? 7 : 0) + (footerHeight ? 7 : 0);
-        const height = Math.max(compose ? 160 : 88, Math.min(360, Math.ceil(natural + insetHeight)));
-        if (lastHeight.current !== height) { lastHeight.current = height; void window.pet.resizeQuickBubble(height).catch(() => undefined); }
-      }, 60);
+        const next = { body: quota ? 340 : Math.max(88, Math.min(360, Math.ceil(natural + 38))), choices: choiceRef.current?.scrollHeight ?? 0 };
+        setMeasured(old => old.body === next.body && old.choices === next.choices ? old : next);
+      });
     };
     const observer = new ResizeObserver(measure);
-    for (const element of [header.current, body.current, bottom.current]) if (element) observer.observe(element);
-    measure(); return () => { observer.disconnect(); if (timer) clearTimeout(timer); };
-  }, [viewport.width, insetHeight, compose, title]);
+    for (const element of [header.current, body.current, bottom.current, choiceRef.current]) if (element) observer.observe(element);
+    measure(); return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [width, compose, quota, title, Boolean(choices)]);
+  useLayoutEffect(() => {
+    let canceled = false, frame = 0;
+    frame = requestAnimationFrame(() => {
+      const regions = Array.from(choiceRef.current?.querySelectorAll('button') ?? []).map(button => button.getBoundingClientRect()).map(rect => ({ x: rect.x, y: Math.max(choicesTop, rect.y), width: rect.width, height: Math.max(0, Math.min(totalHeight - 8, rect.bottom) - Math.max(choicesTop, rect.y)), radius: 12 })).filter(rect => rect.height > 0);
+      const request = { id: layout?.id ?? 0, width, height: totalHeight, body: { x: bodyX, y: 0, width: beside ? 320 : width, height: Math.min(bodyHeight, totalHeight) }, regions };
+      const key = JSON.stringify(request);
+      const unchanged = lastLayout.current === key;
+      lastLayout.current = key;
+      const operation = unchanged ? Promise.resolve() : layout && window.pet.layoutQuickBubble ? window.pet.layoutQuickBubble(request) : window.pet.resizeQuickBubble(totalHeight);
+      void operation.then(() => { frame = requestAnimationFrame(() => { frame = requestAnimationFrame(() => { if (!canceled && layout) void window.pet.confirmQuickLayout(layout.id).catch(() => {}); }); }); }).catch(() => { lastLayout.current = ''; });
+    });
+    return () => { canceled = true; cancelAnimationFrame(frame); };
+  }, [layout?.id, width, totalHeight, bodyHeight, bodyX, measured.choices, viewport.width, viewport.height, choices, choiceScroll]);
   return <main className={`quick-shell ${quota ? 'quota-shell' : compose ? 'compose-shell' : 'reply-shell'}`} aria-label={quota ? 'Codex 额度小气泡' : compose ? '龙娘输入气泡' : '龙娘回复气泡'}>
-    <svg className="quick-surface" width={viewport.width} height={viewport.height} viewBox={`0 0 ${viewport.width} ${viewport.height}`} aria-hidden="true"><path d={shape.path} /></svg>
-    <div className="quick-inner" style={{ left: shape.content.x, top: shape.content.y, width: shape.content.width, height: shape.content.height }}>
+    <svg className="quick-surface" width={viewport.width} height={viewport.height} viewBox={`0 0 ${viewport.width} ${viewport.height}`} aria-hidden="true"><path d={shape.path} transform={`translate(${bodyX} 0)`} /></svg>
+    <div className="quick-inner" style={{ left: bodyX + shape.content.x, top: shape.content.y, width: shape.content.width, height: shape.content.height }}>
       {title && <header ref={header} className="quick-header"><strong>{title}</strong><div className="quick-header-actions">{actions}<button type="button" className="icon-button" aria-label="收起气泡" title="收起气泡" onClick={close}><Icon name="minus" size={16} /></button></div></header>}
       <div className="quick-scroll"><div ref={body} className="quick-content">{children}</div></div>
       {footer && <div ref={bottom} className="quick-footer">{footer}</div>}
     </div>
-    {!title && <button type="button" className="icon-button quick-dismiss" style={{ right: viewport.width - shape.content.x - shape.content.width - 7, top: shape.content.y - 10 }} aria-label="收起气泡" title="收起气泡" onClick={close}><Icon name="minus" size={13} /></button>}
+    {!title && <button type="button" className="icon-button quick-dismiss" style={{ left: bodyX + shape.content.x + shape.content.width - 12, top: shape.content.y - 10 }} aria-label="收起气泡" title="收起气泡" onClick={close}><Icon name="minus" size={13} /></button>}
+    {choices && <div className="choice-bubbles" ref={choiceRef} onScroll={() => setChoiceScroll(value => value + 1)} style={{ left: choicesLeft, top: choicesTop, width: beside ? 220 : width - 28, maxHeight: Math.max(40, Math.min(viewport.height, totalHeight) - choicesTop - 8) }}>{choices}</div>}
   </main>;
 }
 
@@ -67,7 +92,7 @@ export function QuickBubble(props: QuickBubbleProps) {
 
   useEffect(() => {
     const input = inputRef.current;
-    if (input) { input.style.height = 'auto'; input.style.height = `${Math.min(112, Math.max(68, input.scrollHeight))}px`; }
+    if (input) { input.style.height = 'auto'; input.style.height = `${Math.min(112, Math.max(30, input.scrollHeight))}px`; }
   }, [draft, inputRef, interaction, compose]);
 
   useEffect(() => {
@@ -80,11 +105,11 @@ export function QuickBubble(props: QuickBubbleProps) {
   }, [compose, Boolean(interaction)]);
 
   const showInteraction = Boolean(interaction) && (compose || props.approval);
-  return <QuickBubbleFrame shape={props.shape} compose={compose} close={props.close}>
+  return <QuickBubbleFrame shape={props.shape} layout={props.layout} compose={compose} close={props.close}>
     {props.error && <p className="quick-error" role="alert">{props.error}</p>}
     {!props.connected && <p className="quick-status">{props.status}。右键桌宠可打开连接设置。</p>}
     {showInteraction ? <>{interactionCount > 1 && <p className="quick-queue">还有 {interactionCount - 1} 项待回应。</p>}{interaction}</> : compose ?
-      <div className="quick-composer"><textarea ref={inputRef} value={draft} rows={3} aria-label="对龙娘说点什么" placeholder={active ? '还想补充什么？' : '想说什么，告诉我…'} maxLength={50000} onChange={event => setDraft(event.target.value)} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
+      <div className="quick-composer"><textarea ref={inputRef} value={draft} rows={1} aria-label="对龙娘说点什么" placeholder={active ? '还想补充什么？' : '想说什么，告诉我…'} maxLength={50000} onChange={event => setDraft(event.target.value)} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => {
         if (event.key === 'Enter' && !event.shiftKey && !composing.current && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); void props.send(); }
       }} /><button type="button" className="send-button" aria-label={active ? '补充任务要求' : '发送消息'} title={active ? '补充任务要求' : '发送消息'} disabled={!draft.trim() || !props.connected || props.sending} onClick={() => { void props.send(); }}><Icon name="arrow" size={17} /></button></div>
       : props.questionPrompt ? props.questionPrompt : <>

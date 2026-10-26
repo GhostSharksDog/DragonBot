@@ -11,6 +11,7 @@ const PROFILE_NAME = /^(?!\.{1,2}$)[A-Za-z0-9._ -]{1,100}$/;
 const execFileAsync = promisify(execFile);
 type JsonObject = Record<string, any>;
 interface SetupOptions {
+  independentDataDir?: string;
   getSettings(): Settings;
   updateSettings(patch: Partial<Settings>): void;
   openExternal(url: string): Promise<void>;
@@ -55,7 +56,7 @@ export class BrowserSetupService {
   }
 
   private async inspect(): Promise<BrowserSetupSnapshot> {
-    this.publish({ status: 'detecting', message: '正在查找 Chrome 与官方扩展…', canConnect: false });
+    this.publish({ status: 'detecting', message: this.options.independentDataDir ? '正在查找独立 Chrome…' : '正在查找 Chrome 与官方扩展…', canConnect: false });
     try {
       const settings = this.options.getSettings(); const env = this.options.environment ?? process.env;
       const candidates = settings.chromeExecutablePath ? [settings.chromeExecutablePath] : this.options.executableCandidates ?? [
@@ -67,6 +68,11 @@ export class BrowserSetupService {
       for (const candidate of candidates) if (path.isAbsolute(candidate) && await fileExists(candidate)) { this.executablePath = path.resolve(candidate); break; }
       if (!this.executablePath && !settings.chromeExecutablePath && !this.options.executableCandidates && process.platform === 'win32') this.executablePath = await this.registryChrome();
       if (!this.executablePath) { this.publish({ status: 'missing-browser', message: '没有找到 Chrome。请先安装 Chrome；如已安装在其他位置，可在高级设置中指定程序路径。', chromeFound: false, profiles: [], selectedProfileId: null }); return this.getSnapshot(); }
+      if (this.options.independentDataDir) {
+        this.userDataDir = path.join(this.options.independentDataDir, 'browser-profile');
+        this.publish({ status: 'ready', message: '独立 Chrome 已就绪，无需扩展。首次网页登录后会保存在本机。', chromeFound: true, canConnect: true, selectedProfileId: 'Default', profiles: [{ id: 'Default', name: '桌宠专属', extension: 'unknown', lastUsed: true }] });
+        return this.getSnapshot();
+      }
       this.userDataDir = settings.chromeUserDataDir || (env.LOCALAPPDATA ? path.join(env.LOCALAPPDATA, 'Google', 'Chrome', 'User Data') : '');
       if (!this.userDataDir || !path.isAbsolute(this.userDataDir)) throw new Error('profile');
       this.userDataDir = path.resolve(this.userDataDir);
@@ -117,6 +123,7 @@ export class BrowserSetupService {
   }
 
   async install(): Promise<void> {
+    if (this.options.independentDataDir) { await this.options.openExternal('https://www.google.com/chrome/'); return; }
     if (!this.state.chromeFound || !this.state.selectedProfileId) await this.detect();
     const selected = this.state.profiles.find(profile => profile.id === this.state.selectedProfileId);
     if (!this.executablePath || !selected) { await this.options.openExternal('https://www.google.com/chrome/'); return; }
@@ -130,6 +137,9 @@ export class BrowserSetupService {
   }
 
   setConnectionState(status: 'connecting' | 'connected' | 'disconnected' | 'failed', message?: string): void {
+    if (this.options.independentDataDir) {
+      this.publish({ status: status === 'connecting' ? 'awaiting-confirmation' : status === 'disconnected' ? 'ready' : status, canConnect: status !== 'connecting' && this.state.chromeFound, message: status === 'connecting' ? '正在启动独立 Chrome…' : status === 'connected' ? '独立浏览器已连接，登录状态自动保存在本机。' : status === 'failed' ? message || '独立浏览器连接失败，请重新连接。' : '独立浏览器已断开，重新连接后先读取页面。' }); return;
+    }
     if (status === 'connecting') this.publish({ status: 'awaiting-confirmation', message: '请切换到 Chrome，在 Playwright 页面批准连接，并选择允许操作的标签页。', canConnect: false });
     else if (status === 'connected') this.publish({ status: 'connected', message: '已连接你选择的 Chrome 标签页，可以返回聊天交代任务。', canConnect: true });
     else if (status === 'failed') this.publish({ status: 'failed', message: /超时|timeout/i.test(message ?? '') ? '等待 Chrome 确认超时。请在 Chrome 中批准连接并选择标签页，然后重试。' : 'Chrome 连接未完成。请检查扩展已启用，并在 Chrome 中批准连接后重试。', canConnect: true });

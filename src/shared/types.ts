@@ -1,6 +1,9 @@
 export type Activity = 'idle' | 'walking' | 'running' | 'thinking' | 'speaking' | 'awaiting-input' | 'awaiting-approval' | 'success' | 'error';
 export interface TaskGrant { folders: string[]; origins: string[]; browserInput?: boolean }
-export interface Settings { scale: number; roaming: boolean; alwaysOnTop: boolean; model: string; reasoningByModel?: Record<string, string>; codexPath: string; chromeExecutablePath: string; chromeUserDataDir: string; chromeProfileDirectory: string; grant: TaskGrant; skinPath: string | null }
+export interface ProjectLink { id: string; name: string; directory: string; application: 'codex'; threadId: string; threadTitle: string }
+export interface ProjectCandidate { threadId: string; title: string; directory: string; updatedAt: number }
+export interface ProjectHandoff { id: string; projectId: string; threadId: string; status: 'preparing' | 'needs-response' | 'sent' | 'running' | 'completed' | 'uncertain' | 'failed'; message: string; startedAt?: number; updatedAt: number }
+export interface Settings { projectReadAccess?: boolean; projects?: ProjectLink[]; activeProjectId?: string | null; scale: number; roaming: boolean; alwaysOnTop: boolean; model: string; reasoningByModel?: Record<string, string>; codexPath: string; chromeExecutablePath: string; chromeUserDataDir: string; chromeProfileDirectory: string; grant: TaskGrant; skinPath: string | null }
 export type BrowserSetupStatus = 'idle' | 'detecting' | 'missing-browser' | 'missing-extension' | 'extension-disabled' | 'profile-mismatch' | 'ready' | 'awaiting-confirmation' | 'connected' | 'failed';
 export interface BrowserProfile { id: string; name: string; extension: 'enabled' | 'disabled' | 'missing' | 'unknown'; lastUsed: boolean }
 export interface BrowserSetupSnapshot { status: BrowserSetupStatus; message: string; profiles: BrowserProfile[]; selectedProfileId: string | null; chromeFound: boolean; canConnect: boolean }
@@ -57,7 +60,9 @@ export interface SkinData { manifest: SkinManifest; baseUrl: string }
 export type BubbleMode = 'hidden' | 'quick' | 'panel';
 export type QuickView = 'chat' | 'compose' | 'quota';
 export type PanelTab = 'chat' | 'settings' | 'history';
-export interface AppSnapshot { settings: Settings; assistant: AssistantSnapshot; browserSetup?: BrowserSetupSnapshot; bubbleOpen: boolean; bubbleMode?: BubbleMode; quickView?: QuickView; quickShape?: import('./bubble-shape').QuickBubbleShape; panelTab?: PanelTab; skin: SkinData | null; direction: 'left' | 'right'; motion: 'idle' | 'walking' | 'running'; version: string; animationStartedAt?: number; rigPlayback?: import('./rig').RigPlayback }
+export interface QuickLayoutRequest { id: number; width: number; height: number; body: { x: number; y: number; width: number; height: number }; regions: import('./bubble-shape').RoundedRect[] }
+export interface QuickLayoutContext { id: number; maxWidth: number; optionsSide: 'left' | 'right' }
+export interface AppSnapshot { projectHandoff?: ProjectHandoff | null; settings: Settings; assistant: AssistantSnapshot; browserSetup?: BrowserSetupSnapshot; bubbleOpen: boolean; bubbleMode?: BubbleMode; quickView?: QuickView; quickLayout?: QuickLayoutContext; quickShape?: import('./bubble-shape').QuickBubbleShape; panelTab?: PanelTab; skin: SkinData | null; direction: 'left' | 'right'; motion: 'idle' | 'walking' | 'running'; version: string; animationStartedAt?: number; rigPlayback?: import('./rig').RigPlayback }
 export interface AnswerPayload { id: string; answers: Record<string, string[]> }
 export type ApprovalDecision = 'allow' | 'deny' | 'stop' | 'session';
 export interface PetBridge {
@@ -76,11 +81,20 @@ export interface PetBridge {
   setBubbleMode(mode: BubbleMode, tab?: PanelTab): Promise<void>;
   showContextMenu(): Promise<void>;
   resizeQuickBubble(height: number): Promise<void>;
+  layoutQuickBubble(layout: QuickLayoutRequest): Promise<void>;
+  confirmQuickLayout(id: number): Promise<void>;
   openQuota(): Promise<void>;
   openComposer(): Promise<void>;
   showReply(): Promise<void>;
   refreshQuota(): Promise<void>;
   drag(dx: number, dy: number): Promise<void>;
+  showBrowser(): Promise<void>;
+  reconnectBrowser(): Promise<void>;
+  discoverProjects(): Promise<ProjectCandidate[]>;
+  openProject(id: string): Promise<void>;
+  continueProject(id: string, prompt: string): Promise<void>;
+  refreshProject(): Promise<void>;
+  confirmProjectNotSent(): Promise<void>;
   connectBrowser(): Promise<void>;
   detectBrowser(): Promise<BrowserSetupSnapshot>;
   selectBrowserProfile(id: string): Promise<BrowserSetupSnapshot>;
