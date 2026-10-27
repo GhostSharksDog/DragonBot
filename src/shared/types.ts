@@ -17,7 +17,7 @@ export type PendingInteraction = ApprovalRequest | QuestionRequest;
 export interface ModelInfo { id: string; label: string; isDefault?: boolean; supportedReasoningEfforts?: { reasoningEffort: string; description: string }[]; defaultReasoningEffort?: string }
 export interface QuotaWindow { usedPercent: number; windowDurationMins: number | null; resetsAt: number | null }
 export interface QuotaBucket { id: string; name: string | null; primary: QuotaWindow | null; secondary: QuotaWindow | null; credits: { hasCredits: boolean; unlimited: boolean; balance: string | null } | null; planType: string | null }
-export interface QuotaSnapshot { status: 'idle' | 'loading' | 'ready' | 'error'; buckets: QuotaBucket[]; updatedAt: number | null; stale: boolean; error: string | null }
+export interface QuotaSnapshot { status: 'idle' | 'loading' | 'ready' | 'error'; buckets: QuotaBucket[]; updatedAt: number | null; stale: boolean; error: string | null; slow?: boolean }
 export interface ThreadSummary { id: string; title: string; updatedAt: number }
 export interface AssistantSnapshot { connected: boolean; connection?: 'disconnected' | 'connecting' | 'ready' | 'reconnecting' | 'error'; login?: 'unknown' | 'checking' | 'signed-out' | 'opening-browser' | 'waiting-browser' | 'signed-in' | 'error'; diagnostic?: { phase: string; message: string; exitCode?: number | null; signal?: string | null } | null; account: string; models: ModelInfo[]; quota?: QuotaSnapshot; threadId: string | null; activeTurnId: string | null; activity: Activity; messages: ChatMessage[]; pending: PendingInteraction[]; threads: ThreadSummary[]; browser: 'disconnected' | 'connecting' | 'connected'; error: string | null }
 export interface SpriteRegion { x: number; y: number; width: number; height: number; outline?: [number, number][] }
@@ -62,7 +62,7 @@ export type BubbleMode = 'hidden' | 'quick' | 'panel';
 export type QuickView = 'chat' | 'compose' | 'quota';
 export type PanelTab = 'chat' | 'settings' | 'history';
 export interface QuickLayoutRequest { id: number; width: number; height: number; body: { x: number; y: number; width: number; height: number }; regions: import('./bubble-shape').RoundedRect[] }
-export interface QuickLayoutContext { id: number; maxWidth: number; optionsSide: 'left' | 'right' }
+export interface QuickLayoutContext { id: number; maxWidth: number; maxHeight?: number; optionsSide: 'left' | 'right' }
 export interface AppSnapshot { foreground?: 'chat' | 'codex'; chat?: ChatSnapshot; projectHandoff?: ProjectHandoff | null; settings: Settings; assistant: AssistantSnapshot; browserSetup?: BrowserSetupSnapshot; bubbleOpen: boolean; bubbleMode?: BubbleMode; quickView?: QuickView; quickLayout?: QuickLayoutContext; quickShape?: import('./bubble-shape').QuickBubbleShape; panelTab?: PanelTab; skin: SkinData | null; direction: 'left' | 'right'; motion: 'idle' | 'walking' | 'running'; version: string; animationStartedAt?: number; rigPlayback?: import('./rig').RigPlayback }
 export interface AnswerPayload { id: string; answers: Record<string, string[]> }
 export type ApprovalDecision = 'allow' | 'deny' | 'stop' | 'session';
@@ -92,9 +92,9 @@ export interface PetBridge {
   resizeQuickBubble(height: number): Promise<void>;
   layoutQuickBubble(layout: QuickLayoutRequest): Promise<void>;
   confirmQuickLayout(id: number): Promise<void>;
-  openQuota(): Promise<void>;
-  openComposer(): Promise<void>;
-  showReply(): Promise<void>;
+  openQuota(inputAt?: number): Promise<void>;
+  openComposer(inputAt?: number): Promise<void>;
+  showReply(inputAt?: number): Promise<void>;
   refreshQuota(): Promise<void>;
   drag(dx: number, dy: number): Promise<void>;
   showBrowser(): Promise<void>;

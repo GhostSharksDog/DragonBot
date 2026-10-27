@@ -43,6 +43,7 @@ export class ChatService {
       }
     }catch{/* First launch has no Chat history. */}
   }
+  getActivityState(){return {active:this.state.active,speaking:this.current?.messages.at(-1)?.role==='assistant'};}
   getSnapshot():ChatSnapshot{return structuredClone({...this.state,conversationId:this.current?.id??null,messages:this.current?.messages??[],conversations:this.conversations.map(c=>({id:c.id,title:c.title,updatedAt:c.updatedAt})).reverse()});}
   private publish(patch:Partial<ChatSnapshot>={}){this.state={...this.state,...patch};this.options.changed();}
   private save(){fs.mkdirSync(path.dirname(this.file),{recursive:true});fs.writeFileSync(this.file+'.tmp',JSON.stringify({currentId:this.current?.id??null,conversations:this.conversations,outbox:this.outbox}));fs.renameSync(this.file+'.tmp',this.file);}

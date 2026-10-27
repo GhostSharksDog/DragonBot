@@ -169,25 +169,63 @@ try {
   const chatBeforeQuota = await page.evaluate(async () => { const state = await window.pet.getState(); return { threadId: state.assistant.threadId, messages: state.assistant.messages }; });
   await page.evaluate(() => window.pet.openQuota());
   await page.getByRole('main', { name: 'Codex 额度小气泡' }).waitFor();
-  assert.equal(await page.locator('#quota-bucket').inputValue(), 'codex', 'Codex must be the initial bucket even when the server list has a different order.');
+  assert.equal(await page.locator('[data-bucket]').getAttribute('data-bucket'), 'codex', 'Codex must be the initial bucket even when the server list has a different order.');
   assert.equal(Number(await page.getByRole('progressbar', { name: '5 小时额度剩余额度' }).getAttribute('value')), 87.5);
   assert.equal(Number(await page.getByRole('progressbar', { name: '7 天额度剩余额度' }).getAttribute('value')), 60);
-  await page.locator('#quota-bucket').selectOption('other');
+  await page.getByRole('button', { name: '上一个额度类别' }).click();
   assert.equal(Number(await page.getByRole('progressbar', { name: '1 小时额度剩余额度' }).getAttribute('value')), 25);
   await page.evaluate(() => { window.__rejectNextQuota(); });
   await page.getByRole('button', { name: '刷新额度', exact: true }).click();
-  await page.getByRole('alert').filter({ hasText: '模拟额度刷新失败' }).waitFor();
-  await page.getByText('上次记录，尚未更新。').waitFor();
-  assert.equal(await page.locator('#quota-bucket').inputValue(), 'other', 'Refreshing cached data must retain a still-valid bucket selection.');
+  await page.getByRole('alert').filter({ hasText: '刷新未完成，显示上次记录' }).waitFor();
+  assert.equal(await page.locator('[data-bucket]').getAttribute('data-bucket'), 'other', 'Refreshing cached data must retain a still-valid bucket selection.');
   assert.equal(Number(await page.getByRole('progressbar').getAttribute('value')), 25, 'A refresh error must keep the last real value.');
   await page.getByRole('button', { name: '刷新额度', exact: true }).click();
   await page.getByRole('alert').waitFor({ state: 'detached' });
   await page.waitForFunction(async () => { const quota = (await window.pet.getState()).assistant.quota; return quota.status === 'ready' && !quota.stale; });
-  await page.locator('#quota-bucket').selectOption('unknown');
-  await page.getByText('暂未返回此窗口额度。').waitFor();
+  await page.getByRole('button', { name: '上一个额度类别' }).click();
+  await page.getByText('剩余 —').first().waitFor();
   assert.equal(await page.getByRole('progressbar').count(), 0, 'Unknown quota must not render as zero percent.');
-  await page.locator('#quota-bucket').selectOption('codex');
+  await page.getByRole('button', { name: '上一个额度类别' }).click();
   await page.screenshot({ path: path.join(artifactDir, 'quota-ready.png') });
+  const quotaFixture = await page.evaluate(() => window.pet.getState()), quotaViewport = page.viewportSize();
+  const assertQuotaFits = async () => {
+    const geometry = await page.evaluate(() => {
+      const root = document.querySelector('.quota-shell .quick-inner').getBoundingClientRect();
+      const parts = [...document.querySelectorAll('.quota-shell .quick-scroll, .quota-fixed, .quota-data, .quota-detail-area')].map(el => ({ height: el.clientHeight, scroll: el.scrollHeight, overflow: getComputedStyle(el).overflowY }));
+      const controls = [...document.querySelectorAll('.quota-shell button, .quota-shell progress, .quota-updated')].map(el => el.getBoundingClientRect()).map(r => ({ top: r.top, bottom: r.bottom }));
+      return { root: { top: root.top, bottom: root.bottom }, parts, controls };
+    });
+    assert(geometry.parts.every(p => p.scroll <= p.height + 1), JSON.stringify(geometry));
+    assert(geometry.controls.every(r => r.top >= geometry.root.top - 1 && r.bottom <= geometry.root.bottom + 1), 'Quota controls remain inside the bubble.');
+  };
+  for (const [width, height] of [[320, 340], [280, 340], [320, 240]]) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(({ width, height }) => window.__patch({ quickShape: undefined, quickLayout: { id: height, maxWidth: width, maxHeight: height, optionsSide: 'right' } }), { width, height });
+    await page.waitForTimeout(80); await assertQuotaFits();
+    if (height < 320) {
+      assert.equal(await page.getByRole('progressbar').count(), 1);
+      await page.getByRole('button', { name: '下一个额度窗口' }).click(); await assertQuotaFits();
+      await page.getByRole('button', { name: '上一个额度窗口' }).click();
+    }
+  }
+  const quotaLongError = '连接暂时不可用，请保留这段完整错误以便检查。\n'.repeat(30);
+  await page.evaluate(({ original, problem }) => window.__patch({ assistant: { quota: { ...original, status: 'error', stale: true, error: problem, buckets: original.buckets.map(b => b.id === 'codex' ? { ...b, name: '很长的额度类别名称'.repeat(12), credits: { hasCredits: true, unlimited: false, balance: '123.45' } } : b) } } }), { original: quotaFixture.assistant.quota, problem: quotaLongError });
+  await page.getByRole('button', { name: '详情', exact: true }).click();
+  let completeDetail = '';
+  for (let i = 0; i < 100; i++) {
+    await page.waitForTimeout(20); await assertQuotaFits();
+    completeDetail += await page.locator('.quota-detail-area > .quota-detail-text:not(.quota-measure)').textContent();
+    const next = page.getByRole('button', { name: '下一页详情' }); if (await next.isDisabled()) break; await next.click();
+  }
+  assert(completeDetail.includes(quotaLongError), 'Paging preserves the complete error, including line breaks.');
+  assert(completeDetail.includes('123.45'));
+  await page.getByRole('button', { name: '额度', exact: true }).click();
+  await page.evaluate(original => window.__patch({ assistant: { quota: { ...original, status: 'loading', slow: true, buckets: [{ ...original.buckets.find(b => b.id === 'codex'), primary: { usedPercent: 100, windowDurationMins: 300, resetsAt: null }, secondary: null }] } } }), quotaFixture.assistant.quota);
+  await page.getByText('刷新较慢，稍后自动更新').waitFor();
+  assert.equal(Number(await page.getByRole('progressbar').getAttribute('value')), 0);
+  await assertQuotaFits();
+  await page.setViewportSize(quotaViewport);
+  await page.evaluate(saved => window.__patch({ quickLayout: saved.quickLayout, quickShape: saved.quickShape, assistant: { quota: saved.assistant.quota } }), quotaFixture);
   assert.deepEqual(await page.evaluate(async () => { const state = await window.pet.getState(); return { threadId: state.assistant.threadId, messages: state.assistant.messages }; }), chatBeforeQuota, 'Opening and refreshing quota must not add chat messages or change thread.');
   await page.getByRole('button', { name: '返回聊天', exact: true }).click();
   assert.equal(await quickComposer.count(), 0, 'Returning from quota shows the reply, not the input.');
@@ -243,10 +281,10 @@ try {
   if (await quick.getByRole('button', { name: '下一题', exact: true }).isVisible()) await quick.getByRole('button', { name: '下一题', exact: true }).click();
   assert.equal(await quick.getByRole('textbox', { name: '文件夹名称的文字回答' }).inputValue(), '面板中补全的答案', 'Panel edits must flow back into the stepped quick question');
   await page.evaluate(() => window.pet.openQuota());
-  await page.getByText('有 1 项待回答', { exact: true }).waitFor();
+  await page.getByRole('button', { name: '返回处理待办（1）', exact: true }).waitFor();
   assert.equal(await page.getByRole('textbox', { name: '文件夹名称的文字回答' }).count(), 0);
   await page.screenshot({ path: path.join(artifactDir, 'quota-pending-question.png') });
-  await page.getByRole('button', { name: '返回处理待办', exact: true }).click();
+  await page.getByRole('button', { name: '返回处理待办（1）', exact: true }).click();
   await quick.locator('.quick-question-prompt').waitFor();
   assert.equal(await quick.locator('textarea, input').count(), 0);
   await openComposer();
@@ -270,8 +308,8 @@ try {
   await quickApprovalCard.getByRole('button', { name: '允许本次', exact: true }).dblclick();
   await page.waitForFunction(() => window.__calls.filter(call => call.name === 'approve' && call.payload.id === 'quick-approval').length === 1);
   await page.evaluate(() => window.pet.openQuota());
-  await page.getByText('有 1 项待回答或批准', { exact: true }).waitFor();
-  await page.getByRole('button', { name: '返回处理待办', exact: true }).click();
+  await page.getByRole('button', { name: '返回处理待办（1）', exact: true }).waitFor();
+  await page.getByRole('button', { name: '返回处理待办（1）', exact: true }).click();
   assert.equal(await quickApprovalCard.getByRole('button', { name: '允许本次', exact: true }).isDisabled(), true, 'Quota must retain an in-flight approval lock.');
   await setMode('panel', 'chat');
   assert.equal(await page.getByRole('button', { name: '允许本次', exact: true }).isDisabled(), true, 'Approval lock must survive switching into the panel');

@@ -18,6 +18,7 @@ export function Pet({ snapshot }: { snapshot: AppSnapshot | null }) {
   const moving = useRef(false);
   const rigStarted = useRef(Date.now());
   const [error, setError] = useState(false);
+  const inputAt = useRef(0);
   const [failedFrame, setFailedFrame] = useState(false);
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight });
   useEffect(() => {
@@ -34,11 +35,11 @@ export function Pet({ snapshot }: { snapshot: AppSnapshot | null }) {
   const activateReply = () => {
     const current = latest.current;
     const hide = current?.bubbleMode === 'quick' && (current.quickView ?? 'chat') === 'chat';
-    void (hide ? window.pet.setBubbleMode('hidden') : window.pet.showReply()).catch(() => setError(true));
+    void (hide ? window.pet.setBubbleMode('hidden') : window.pet.showReply(inputAt.current)).catch(() => setError(true));
   };
   if (!gesture.current) gesture.current = new PetClickController({
     single: activateReply,
-    double: () => { void window.pet.openQuota().catch(() => setError(true)); },
+    double: () => { void window.pet.openQuota(inputAt.current).catch(() => setError(true)); },
     drag: (dx, dy) => { delta.current.x += dx; delta.current.y += dy; void flushDrag(); },
   });
   useEffect(() => () => gesture.current?.cancel(), []);
@@ -71,6 +72,7 @@ export function Pet({ snapshot }: { snapshot: AppSnapshot | null }) {
       }}
       onPointerUp={event => {
         if (event.button !== 0) return;
+        inputAt.current = Date.now();
         gesture.current?.up({ x: event.screenX, y: event.screenY });
         if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
       }}
@@ -78,7 +80,7 @@ export function Pet({ snapshot }: { snapshot: AppSnapshot | null }) {
       onLostPointerCapture={() => { if (gesture.current?.pressed) gesture.current.cancel(); }}
       onContextMenu={event => { event.preventDefault(); gesture.current?.cancel(); void window.pet.showContextMenu().catch(() => setError(true)); }}
       onKeyDown={event => {
-        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); gesture.current?.cancel(); if (!event.repeat) activateReply(); }
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); gesture.current?.cancel(); inputAt.current = Date.now(); if (!event.repeat) activateReply(); }
         const moves: Record<string, [number, number]> = { ArrowLeft: [-12, 0], ArrowRight: [12, 0], ArrowUp: [0, -12], ArrowDown: [0, 12] };
         if (moves[event.key]) { event.preventDefault(); gesture.current?.cancel(); void window.pet.drag(...moves[event.key]).catch(() => setError(true)); }
       }}>
@@ -88,7 +90,7 @@ export function Pet({ snapshot }: { snapshot: AppSnapshot | null }) {
     </button>
     <button className={`pet-chat-launcher${snapshot?.assistant.pending.length ? ' has-pending' : ''}`} style={{ left: launcher.x, top: launcher.y, width: launcher.width, height: launcher.height, borderRadius: launcher.radius }} aria-label="输入消息" aria-pressed={composeOpen}
       onPointerDown={event => { event.stopPropagation(); gesture.current?.cancel(); }}
-      onClick={event => { event.stopPropagation(); gesture.current?.cancel(); void window.pet.openComposer().catch(() => setError(true)); }}
+      onClick={event => { event.stopPropagation(); gesture.current?.cancel(); void window.pet.openComposer(Date.now()).catch(() => setError(true)); }}
       onContextMenu={event => { event.preventDefault(); event.stopPropagation(); gesture.current?.cancel(); void window.pet.showContextMenu().catch(() => setError(true)); }}>
       <Icon name="chat" size={17} />
     </button>

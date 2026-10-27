@@ -26,6 +26,7 @@ import { InteractionQueue } from './interactions';
 import { BackendError, JsonLineRpc, resolveCodex, sanitizeDiagnostic, spawnAppServer, type RpcMessage, type RpcId } from './transport';
 import { SerialOperations } from './lifecycle';
 import { emptyQuota, normalizeQuota, quotaError } from './quota';
+import { recordPerformance } from '../performance';
 
 export interface ToolHostLike {
   definitions(): DynamicTool[];
@@ -33,7 +34,7 @@ export interface ToolHostLike {
   connectBrowser(): Promise<void>;
   dispose(): Promise<void>;
 }
-interface Options { dataDir: string; getSettings: () => Settings; toolHost: ToolHostLike; openExternal: (url: string) => Promise<void> }
+interface Options { dataDir: string; getSettings: () => Settings; toolHost: ToolHostLike; openExternal: (url: string) => Promise<void>; prefetchQuota?: boolean }
 interface SavedThread extends ThreadSummary { messages: ChatMessage[] }
 interface History { version: 1; selected: string | null; threads: SavedThread[] }
 interface QuotaRead { rpc: JsonLineRpc; generation: number; accountEpoch: number; revision: number; promise: Promise<void> }
@@ -101,6 +102,7 @@ export class AssistantService extends EventEmitter {
   private quotaTimer: NodeJS.Timeout | null = null;
   private quotaLastReadAt = 0;
   constructor(private readonly options: Options, private readonly runtime: BackendRuntime = { resolveCodex, spawnAppServer }) { super(); }
+  getActivityState() { return { activity: this.state.activity, activeTurnId: this.state.activeTurnId, pendingCount: this.queue.size }; }
   getSnapshot(): AssistantSnapshot {
     return structuredClone({ ...this.state, pending: this.queue.snapshot(), threads: [...this.history.values()].map(({ messages: _, ...summary }) => summary).sort((a, b) => b.updatedAt - a.updatedAt) });
   }
@@ -118,11 +120,13 @@ export class AssistantService extends EventEmitter {
     if (this.quotaRead) { this.quotaNeedsRefresh = true; return; }
     if (this.quotaTimer) return;
     const delay = Math.max(50, 1000 - (Date.now() - this.quotaLastReadAt));
-    this.quotaTimer = setTimeout(() => { this.quotaTimer = null; if (!this.quotaVisible) return; if (Date.now() - this.quotaLastReadAt < 1000) { this.scheduleQuotaRefresh(); return; } void this.refreshQuota(); }, delay); this.quotaTimer.unref();
+    this.quotaTimer = setTimeout(() => { this.quotaTimer = null; if (!this.quotaVisible) return; if (Date.now() - this.quotaLastReadAt < 1000) { this.scheduleQuotaRefresh(); return; } void this.refreshQuota('open'); }, delay); this.quotaTimer.unref();
   }
-  refreshQuota(): Promise<void> {
+  refreshQuota(source: 'manual' | 'open' | 'prefetch' = 'manual'): Promise<void> {
     if (this.disposed) return Promise.resolve();
     if (this.quotaRead) return this.quotaRead.promise;
+    const cached = this.state.quota;
+    if (source !== 'manual' && cached?.status === 'ready' && !cached.stale && cached.updatedAt !== null && Date.now() - cached.updatedAt < 30_000) return Promise.resolve();
     let unavailable: string | null = null;
     if (!this.state.connected || !this.rpc || this.state.connection !== 'ready') unavailable = '助手尚未连接，连接后再查看额度。';
     else if (this.accountReadyEpoch !== this.accountEpoch) unavailable = '正在更新账号信息，请稍后刷新额度。';
@@ -131,18 +135,27 @@ export class AssistantService extends EventEmitter {
     if (unavailable) { this.state.quota = { ...(this.state.quota ?? emptyQuota()), status: 'error', stale: true, error: unavailable }; this.changed(); return Promise.resolve(); }
     const request: QuotaRead = { rpc: this.rpc!, generation: this.generation, accountEpoch: this.accountEpoch, revision: this.quotaRevision, promise: Promise.resolve() };
     this.quotaRead = request;
-    this.quotaLastReadAt = Date.now(); this.state.quota = { ...(this.state.quota ?? emptyQuota()), status: 'loading', stale: true, error: null };
-    request.promise = this.readQuota(request); this.changed(); return request.promise;
+    this.quotaLastReadAt = Date.now(); this.state.quota = { ...(this.state.quota ?? emptyQuota()), status: 'loading', stale: true, slow: false, error: null };
+    recordPerformance({ stage: 'quota-start', source });
+    request.promise = this.readQuota(request, source); this.changed(); return request.promise;
   }
-  private async readQuota(request: QuotaRead): Promise<void> {
+  private prefetchQuota(): void {
+    if (this.options.prefetchQuota !== false && this.accountType === 'chatgpt' && this.state.login === 'signed-in' && this.state.connection === 'ready') void this.refreshQuota('prefetch');
+  }
+  private async readQuota(request: QuotaRead, source: 'manual' | 'open' | 'prefetch'): Promise<void> {
     const current = () => !this.disposed && this.rpc === request.rpc && this.generation === request.generation && this.accountEpoch === request.accountEpoch && this.quotaRead === request;
+    const started = performance.now();
+    let outcome: 'ready' | 'error' = 'error';
+    const slow = setTimeout(() => { if (current()) { this.state.quota = { ...this.state.quota!, slow: true }; this.changed(); } }, 2000);
+    slow.unref();
     try {
       const response = await request.rpc.request<GetAccountRateLimitsResponse>('account/rateLimits/read', { excludeResetCreditDetails: true }, 10_000, { timeoutMode: 'reject' });
       if (!current()) return;
-      this.state.quota = { status: 'ready', buckets: normalizeQuota(response), updatedAt: Date.now(), stale: this.quotaRevision !== request.revision, error: null }; this.changed();
+      outcome = 'ready'; this.state.quota = { status: 'ready', buckets: normalizeQuota(response), updatedAt: Date.now(), stale: this.quotaRevision !== request.revision, slow: false, error: null }; this.changed();
     } catch (error) {
-      if (current()) { this.state.quota = { ...(this.state.quota ?? emptyQuota()), status: 'error', stale: true, error: quotaError(error) }; this.changed(); }
+      if (current()) { this.state.quota = { ...(this.state.quota ?? emptyQuota()), status: 'error', stale: true, slow: false, error: quotaError(error) }; this.changed(); }
     } finally {
+      clearTimeout(slow); recordPerformance({ stage: 'quota-end', source, elapsedMs: Math.round(performance.now() - started), outcome });
       if (this.quotaRead === request) { this.quotaRead = null; const again = this.quotaNeedsRefresh; this.quotaNeedsRefresh = false; if (again) this.scheduleQuotaRefresh(); }
     }
   }
@@ -223,7 +236,7 @@ export class AssistantService extends EventEmitter {
     if (this.state.connected && this.projectRuntimeMode === projectMode) return;
     if (this.child || this.rpc) await this.disconnect(false);
     this.state.connection = reconnecting ? 'reconnecting' : 'connecting'; this.state.login = 'checking'; this.state.error = null; this.state.diagnostic = null; this.changed();
-    try { await this.connect(); this.state.connection = 'ready'; this.changed(); }
+    try { await this.connect(); this.state.connection = 'ready'; this.changed(); this.prefetchQuota(); }
     catch (error) { await this.disconnect(false); this.state.connection = 'error'; throw this.fail(error); }
   }
   private async connect(): Promise<void> {
@@ -568,7 +581,7 @@ export class AssistantService extends EventEmitter {
   private refreshAfterAccountEvent(): void {
     void this.lifecycle.run(async () => {
       if (!this.state.connected || this.disposed) return;
-      await this.refreshAccountAndModels(); this.changed(); if (this.quotaVisible) this.scheduleQuotaRefresh();
+      await this.refreshAccountAndModels(); this.changed(); this.prefetchQuota(); if (this.quotaVisible && !this.quotaRead) this.scheduleQuotaRefresh();
     }).catch(error => this.fail(error));
   }
   private async onRequest(request: ServerRequest): Promise<void> {

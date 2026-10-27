@@ -22,6 +22,7 @@ import { rigFiles, rigHitTest, sampleRigPose, transitionRigPlayback, validateRig
 import { QuickOutsideClickMonitor, rawMouseHelperPath, shouldDismissQuickClick } from './quick-outside-click';
 import { createQuickBubbleShape, quickBubbleHit } from '../shared/bubble-shape';
 import { petChatLauncherRect, pointInRoundedRect } from '../shared/pet-chat-launcher';
+import { configurePerformanceLog, recordPerformance, flushPerformanceLog } from './performance';
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'pet-skin', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 if (process.env.DRAGON_PET_DATA_DIR) app.setPath('userData', path.resolve(process.env.DRAGON_PET_DATA_DIR));
@@ -39,7 +40,7 @@ function chatChanged() {
   if(completed&&foreground==='chat'&&!userHidden&&pet?.isVisible()&&bubbleMode==='hidden'&&!assistant.getSnapshot().pending.length){quickView='chat';showBubbleMode('quick',panelTab,false);}
   else publish();
 }
-function currentActivity(): Activity { const a=assistant.getSnapshot(); if(a.pending.length||a.activeTurnId)return a.activity;const c=chat?.getSnapshot();return c?.active?(c.messages.at(-1)?.role==='assistant'?'speaking':'thinking'):a.activity; }
+function currentActivity(): Activity { const a=assistant.getActivityState(); if(a.pendingCount||a.activeTurnId)return a.activity;const c=chat?.getActivityState();return c?.active?(c.speaking?'speaking':'thinking'):a.activity; }
 let projects: ProjectService;
 let outsideClickMonitor: QuickOutsideClickMonitor | undefined;
 let bubbleOpen = false, skin: SkinData | null = null, skinRoot = '', direction: 'left' | 'right' = 'right', motion: 'idle' | 'walking' | 'running' = 'idle';
@@ -50,6 +51,7 @@ let roaming = createHorizontalMotion({ x: 0, y: 0 }, performance.now()), draggin
 let shuttingDown = false, lastStateKey = '', lastActivity: Activity = 'idle', ignoreMouse = false;
 let lastPendingId: string | null = null;
 let quickAwaitingLayout = false;
+let quickLayoutKey = '', quickOpenedAt = 0;
 let lastAnimationKey = '', animationStartedAt = Date.now();
 const masks = new Map<string, { bitmap: Buffer; width: number; height: number }>();
 
@@ -72,7 +74,7 @@ function bubbleHit(x: number, y: number) {
 function quickLayoutContext() {
   const bounds = pet.getBounds(), area = screen.getDisplayMatching(bounds).workArea;
   const left = bounds.x - area.x, right = area.x + area.width - bounds.x - bounds.width;
-  return { id: bubbleRevision, maxWidth: Math.max(left, right) >= 550 ? 550 : Math.min(320, area.width - 16), optionsSide: (right >= 550 ? 'right' : 'left') as 'left' | 'right' };
+  return { id: bubbleRevision, maxWidth: Math.max(left, right) >= 550 ? 550 : Math.min(320, area.width - 16), maxHeight: Math.max(88, Math.min(360, area.height - 16)), optionsSide: (right >= 550 ? 'right' : 'left') as 'left' | 'right' };
 }
 function snapshot(): AppSnapshot { const key = animationKey(); if (key !== lastAnimationKey) { lastAnimationKey = key; animationStartedAt = Date.now(); } return { chat: chat?.getSnapshot(), foreground, projectHandoff: projects?.getSnapshot(), settings: settings.value, assistant: { ...assistant.getSnapshot(), activity: currentActivity() }, browserSetup: browserSetup?.getSnapshot(), bubbleOpen, bubbleMode, quickView, quickLayout: quickLayoutContext(), quickShape: bubbleMode === 'quick' ? quickShape() : undefined, panelTab, skin, direction, motion, version: app.getVersion(), animationStartedAt, rigPlayback: currentRigPlayback() }; }
 function publish() {
@@ -83,13 +85,20 @@ function publish() {
 function positionBubble() {
   if (!pet || !bubble || bubble.isDestroyed()) return;
   const bounds = pet.getBounds(), area = screen.getDisplayMatching(bounds).workArea;
-  bubble.setBounds(bubbleMode === 'quick' ? quickBubbleBounds(bounds, area, quickHeight, quickWidth) : bubbleBounds(bounds, area));
+  const next = bubbleMode === 'quick' ? quickBubbleBounds(bounds, area, quickHeight, quickWidth) : bubbleBounds(bounds, area);
+  const previous = bubble.getBounds();
+  if (next.x !== previous.x || next.y !== previous.y || next.width !== previous.width || next.height !== previous.height) bubble.setBounds(next);
 }
 function showBubble(open: boolean, focus = true) {
   showBubbleMode(open ? 'quick' : 'hidden', panelTab, focus);
 }
 function showBubbleMode(mode: BubbleMode, tab: PanelTab = panelTab, focus = true) {
+  if (mode === 'quick' && bubbleMode === 'quick' && displayedQuickView === quickView && bubble.isVisible()) {
+    if (focus) bubble.focus();
+    return;
+  }
   quickAwaitingLayout = mode === 'quick';
+  quickLayoutKey = ''; quickOpenedAt = performance.now();
   bubbleRevision++; quickWidth = 320; quickBody = null; quickRegions = []; pendingQuickFocus = focus;
   if (mode === 'quick' && (bubbleMode !== 'quick' || displayedQuickView !== quickView)) {
     quickHeight = quickView === 'quota' ? 340 : 88;
@@ -102,14 +111,20 @@ function showBubbleMode(mode: BubbleMode, tab: PanelTab = panelTab, focus = true
   outsideClickMonitor?.setQuickVisible(mode === 'quick' && bubble.isVisible());
   publish();
 }
-function openQuota() {
-  quickView = 'quota'; userHidden = false; pet.showInactive(); showBubbleMode('quick');
-  void assistant.refreshQuota().catch(() => {});
+function recordOpen(view: QuickView, inputAt?: number) {
+  recordPerformance({ stage: 'open-request', view, id: bubbleRevision + 1, ...(typeof inputAt === 'number' && Number.isFinite(inputAt) && Math.abs(Date.now() - inputAt) < 60_000 ? { inputAt } : {}) });
 }
-function showReply() {
+function openQuota(inputAt?: number) {
+  recordOpen('quota', inputAt);
+  quickView = 'quota'; userHidden = false; pet.showInactive(); showBubbleMode('quick');
+  void assistant.refreshQuota('open').catch(() => {});
+}
+function showReply(inputAt?: number) {
+  recordOpen('chat', inputAt);
   quickView = 'chat'; userHidden = false; pet.showInactive(); showBubbleMode('quick');
 }
-function openComposer() {
+function openComposer(inputAt?: number) {
+  recordOpen('compose', inputAt);
   quickView = 'compose'; userHidden = false; pet.showInactive(); showBubbleMode('quick');
 }
 async function submitFromComposer(operation: () => Promise<void>) {
@@ -204,7 +219,7 @@ function tick() {
   if (!pet || pet.isDestroyed()) return;
   const now = performance.now();
   const bounds = pet.getBounds(), cursor = screen.getCursorScreenPoint();
-  const near = distanceToRect(cursor, bounds) < 42, state = assistant.getSnapshot();
+  const near = distanceToRect(cursor, bounds) < 42, state = assistant.getActivityState();
   const hit = draggingUntil > now || spriteHit(cursor.x - bounds.x, cursor.y - bounds.y, bounds.width, bounds.height);
   if (ignoreMouse === hit) { ignoreMouse = !hit; pet.setIgnoreMouseEvents(ignoreMouse, { forward: true }); }
   if (bubbleOpen && bubbleMode === 'quick') {
@@ -212,7 +227,7 @@ function tick() {
     if (ignoreBubbleMouse === inside) { ignoreBubbleMouse = !inside; bubble.setIgnoreMouseEvents(ignoreBubbleMouse, { forward: true }); }
   }
   const roamingMotion = roamingAnimationMotion(skin?.manifest);
-  const paused = Boolean(chat?.getSnapshot().active) || !roamingMotion || !pet.isVisible() || bubbleOpen || near || draggingUntil > now || !settings.value.roaming || state.activity !== 'idle' || state.activeTurnId !== null || state.pending.length > 0;
+  const paused = Boolean(chat?.getActivityState().active) || !roamingMotion || !pet.isVisible() || bubbleOpen || near || draggingUntil > now || !settings.value.roaming || state.activity !== 'idle' || state.activeTurnId !== null || state.pendingCount > 0;
   roaming = advanceHorizontalMotion(roaming, { now, paused, area: screen.getDisplayMatching(bounds).workArea, petWidth: bounds.width, scale: settings.value.scale });
   motion = roaming.motion === 'idle' ? 'idle' : roamingMotion ?? 'idle'; direction = roaming.direction;
   const x = Math.round(roaming.x), y = Math.round(roaming.y);
@@ -236,7 +251,7 @@ function petMenu() {
   const openPanel = (tab: PanelTab) => { userHidden = false; pet.showInactive(); showBubbleMode('panel', tab); };
   return Menu.buildFromTemplate([
     { label: '打开小气泡', click: () => { userHidden = false; quickView = 'chat'; pet.showInactive(); showBubbleMode('quick'); } },
-    { label: 'Codex 额度', click: openQuota },
+    { label: 'Codex 额度', click: () => openQuota() },
     { label: '完整对话', click: () => openPanel('chat') },
     { label: '设置与授权范围', click: () => openPanel('settings') },
     { label: '历史记录', click: () => openPanel('history') }, { type: 'separator' },
@@ -317,13 +332,17 @@ function installHandlers() {
     if (![layout.width, layout.height, ...Object.values(layout.body ?? {})].every(Number.isFinite) || layout.width < 80 || layout.width > maxWidth || layout.height < 88 || layout.height > 360 || !Array.isArray(layout.regions) || layout.regions.length > 30) throw new Error('气泡布局无效。');
     const fits = (rect: {x: number;y: number;width: number;height: number}) => [rect.x,rect.y,rect.width,rect.height].every(Number.isFinite) && rect.x >= 0 && rect.y >= 0 && rect.width >= 0 && rect.height >= 0 && rect.x + rect.width <= layout.width + 1 && rect.y + rect.height <= layout.height + 1;
     if (!fits(layout.body) || layout.regions.some(rect => !fits(rect) || !Number.isFinite(rect.radius))) throw new Error('气泡布局超出窗口。');
+    const key = JSON.stringify(layout);
+    if (key === quickLayoutKey) return;
+    quickLayoutKey = key;
+    recordPerformance({ stage: 'layout-commit', id: layout.id, view: quickView, elapsedMs: Math.round(performance.now() - quickOpenedAt) });
     quickWidth = layout.width; quickHeight = quickView === 'quota' ? 340 : layout.height; quickBody = layout.body; quickRegions = layout.regions;
     positionBubble(); publish();
   });
   handle('pet:quick-ready', (id: number) => {
     if (bubbleMode !== 'quick' || id !== bubbleRevision || !quickBody || userHidden) return;
     quickAwaitingLayout = false;
-    if (!bubble.isVisible()) { pendingQuickFocus ? bubble.show() : bubble.showInactive(); outsideClickMonitor?.setQuickVisible(true); }
+    if (!bubble.isVisible()) { pendingQuickFocus ? bubble.show() : bubble.showInactive(); outsideClickMonitor?.setQuickVisible(true); recordPerformance({ stage: 'window-visible', id, view: quickView, elapsedMs: Math.round(performance.now() - quickOpenedAt) }); }
   });
   handle('pet:quick-height', (height: number) => { if (bubbleMode !== 'quick' || !Number.isFinite(height)) return; const next = Math.max(88, Math.min(360, Math.ceil(height))); if (quickHeight !== next) { quickHeight = next; positionBubble(); publish(); } });
   handle('pet:drag', (dx: number, dy: number) => {
@@ -357,6 +376,7 @@ async function main() {
   app.setAppUserModelId('local.dragonpet.desktop');
   const smoke = process.argv.includes('--smoke-test');
   const dataDir = process.env.DRAGON_PET_DATA_DIR || app.getPath('userData');
+  configurePerformanceLog(dataDir);
   settings = new SettingsStore(dataDir);
   const builtInSkin = path.join(__dirname, '../assets/skins/silver-dragon-frames/skin.json');
   if (settings.value.skinPath) {
@@ -452,7 +472,7 @@ app.on('before-quit', event => {
   event.preventDefault(); shuttingDown = true;
   if (timer) clearInterval(timer);
   outsideClickMonitor?.dispose();
-  void Promise.allSettled([chat?.dispose(), projects?.dispose(), assistant?.dispose(), tools?.dispose()]).finally(() => app.quit());
+  void Promise.allSettled([chat?.dispose(), projects?.dispose(), assistant?.dispose(), tools?.dispose()]).finally(async () => { await flushPerformanceLog(); app.quit(); });
   setTimeout(() => app.exit(0), 4000).unref();
 });
 app.on('window-all-closed', () => { if (shuttingDown) app.quit(); });

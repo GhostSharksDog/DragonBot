@@ -9,6 +9,7 @@ export class InteractionQueue {
   private questions = new Map<string, QuestionEntry>();
   private order: string[] = [];
   constructor(private readonly changed: () => void) {}
+  get size(): number { return this.order.length; }
   snapshot(): PendingInteraction[] {
     return this.order.map(id => this.approvals.get(id)?.view ?? this.questions.get(id)?.view).filter((entry): entry is PendingInteraction => !!entry);
   }

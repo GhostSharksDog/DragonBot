@@ -23,7 +23,7 @@ function fakeChild() {
   const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(), exitCode: null as number | null, signalCode: null as string | null, kill: (): boolean => true });
   child.kill = () => { if (child.signalCode || child.exitCode !== null) return false; queueMicrotask(() => { child.signalCode = 'SIGTERM'; child.stdout.end(); child.emit('exit', null, 'SIGTERM'); child.emit('close', null, 'SIGTERM'); }); return true; }; return child;
 }
-async function fixture(accountType: 'chatgpt' | 'apiKey' | null = 'chatgpt') {
+async function fixture(accountType: 'chatgpt' | 'apiKey' | null = 'chatgpt', prefetchQuota = false) {
   const dataDir = await mkdtemp(path.join(os.tmpdir(), 'dragon-quota-')), value = settings(), requests: Request[] = []; let latest: ReturnType<typeof fakeChild>, account = accountType, accountId = 'account-a', turn = 0;
   const reply = (request: Request, result: unknown) => request.session.stdout.write(`${JSON.stringify({ id: request.id, result })}\n`);
   const runtime: BackendRuntime = { resolveCodex: async () => 'fake-codex.exe', spawnAppServer: (_executable,args) => {
@@ -41,7 +41,7 @@ async function fixture(accountType: 'chatgpt' | 'apiKey' | null = 'chatgpt') {
       if (request.method === 'turn/interrupt' || request.method === 'turn/steer') response({});
     } }); return attached;
   } };
-  const service = new AssistantService({ dataDir, getSettings: () => value, toolHost: { definitions: () => [], call: async () => ({ success: false, contentItems: [] }), connectBrowser: async () => {}, dispose: async () => {} }, openExternal: async () => { throw new Error('No login/browser should open.'); } }, runtime);
+  const service = new AssistantService({ dataDir, getSettings: () => value, prefetchQuota, toolHost: { definitions: () => [], call: async () => ({ success: false, contentItems: [] }), connectBrowser: async () => {}, dispose: async () => {} }, openExternal: async () => { throw new Error('No login/browser should open.'); } }, runtime);
   return { service, settings: value, requests, quotaRequests: () => requests.filter(request => request.method === 'account/rateLimits/read'), reply, reject: (request: Request, code: number, message: string) => request.session.stdout.write(`${JSON.stringify({ id: request.id, error: { code, message } })}\n`), notify: (method: string, params: unknown) => latest.stdout.write(`${JSON.stringify({ method, params })}\n`), switchAccount: (id: string, type = account) => { accountId = id; account = type; }, close: async () => { await service.dispose(); await rm(dataDir, { recursive: true, force: true }); } };
 }
 
@@ -50,6 +50,50 @@ test('quota normalizes multi-bucket windows without forwarding identity or upsel
   const result = normalizeQuota(response); assert.deepEqual(result.map(value => value.id), ['codex', 'other']); assert.equal(result[0].primary!.usedPercent, 0); assert.equal(result[1].primary!.usedPercent, 100); assert.equal(result[1].credits!.balance, '0'); assert(!JSON.stringify(result).includes('account-a')); assert(!JSON.stringify(result).includes('never forward'));
   assert.deepEqual(normalizeQuota({ rateLimits: { limitId: null, primary: { usedPercent: Infinity }, secondary: null, credits: null } })[0], { id: 'codex', name: null, primary: null, secondary: null, credits: null, planType: null });
   assert.equal(normalizeQuota({ rateLimits: { ...bucket(120), primary: { usedPercent: 120, windowDurationMins: null, resetsAt: null } } })[0].primary!.usedPercent, 100);
+});
+
+test('connection prefetch is asynchronous, coalesced with opening, and never creates a task', async () => {
+  const f = await fixture('chatgpt', true);
+  try {
+    await f.service.initialize();
+    assert.equal(f.service.getSnapshot().connection, 'ready');
+    assert.equal(f.quotaRequests().length, 1);
+    const opened = f.service.refreshQuota('open');
+    assert.equal(f.quotaRequests().length, 1);
+    f.reply(f.quotaRequests()[0], quota(0)); await opened;
+    await f.service.initialize(); await f.service.refreshQuota('open');
+    assert.equal(f.quotaRequests().length, 1);
+    assert.equal(f.service.getSnapshot().quota!.buckets[0].primary!.usedPercent, 0);
+    assert(!f.requests.some(r => ['turn/start', 'thread/start', 'account/login/start'].includes(r.method)));
+  } finally { await f.close(); }
+});
+
+test('opening reuses fresh cache for 30 seconds; manual refresh and invalidation bypass it', async t => {
+  const f = await fixture();
+  try {
+    await f.service.initialize(); t.mock.timers.enable({ apis: ['Date', 'setTimeout'] });
+    let read = f.service.refreshQuota('open'); f.reply(f.quotaRequests()[0], quota(20)); await read;
+    t.mock.timers.tick(29_999); await f.service.refreshQuota('open'); assert.equal(f.quotaRequests().length, 1);
+    t.mock.timers.tick(1); read = f.service.refreshQuota('open'); assert.equal(f.quotaRequests().length, 2);
+    assert.equal(f.service.getSnapshot().quota!.buckets[0].primary!.usedPercent, 20);
+    f.reply(f.quotaRequests()[1], quota(30)); await read;
+    read = f.service.refreshQuota(); assert.equal(f.quotaRequests().length, 3); f.reply(f.quotaRequests()[2], quota(40)); await read;
+    f.notify('account/rateLimits/updated', { rateLimits: bucket(50) });
+    read = f.service.refreshQuota('open'); assert.equal(f.quotaRequests().length, 4); f.reply(f.quotaRequests()[3], quota(50)); await read;
+  } finally { t.mock.timers.reset(); await f.close(); }
+});
+
+test('slow refresh exposes progress after 2 seconds and preserves zero-valued cache through timeout', async t => {
+  const f = await fixture();
+  try {
+    await f.service.initialize(); let read = f.service.refreshQuota(); f.reply(f.quotaRequests()[0], quota(100)); await read;
+    t.mock.timers.enable({ apis: ['setTimeout'] }); read = f.service.refreshQuota();
+    t.mock.timers.tick(1999); assert.equal(f.service.getSnapshot().quota!.slow, false);
+    t.mock.timers.tick(1); assert.equal(f.service.getSnapshot().quota!.slow, true);
+    assert.equal(f.service.getSnapshot().quota!.buckets[0].primary!.usedPercent, 100);
+    t.mock.timers.tick(8000); await read;
+    const state = f.service.getSnapshot(); assert.equal(state.quota!.slow, false); assert.equal(state.quota!.status, 'error'); assert.equal(state.connection, 'ready');
+  } finally { t.mock.timers.reset(); await f.close(); }
 });
 
 test('project turns replace workspace roots and keep the local execution environment enabled',async()=>{

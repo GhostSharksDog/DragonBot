@@ -40,40 +40,44 @@ export function QuickBubbleFrame({ shape: suppliedShape, layout, choices, title,
   const beside = Boolean(choices) && (layout?.maxWidth ?? 320) >= 550;
   const width = beside ? 550 : Math.min(320, layout?.maxWidth ?? viewport.width);
   const bodyX = beside && layout?.optionsSide === 'left' ? 230 : 0;
-  const totalHeight = quota ? 340 : Math.min(360, beside ? Math.max(measured.body, measured.choices + 12) : measured.body + (choices ? measured.choices + 8 : 0));
-  const bodyHeight = Math.min(measured.body, choices && !beside ? Math.max(88, 360 - Math.min(measured.choices + 8, 250)) : 360);
+  const maxHeight = layout?.maxHeight ?? 360;
+  const totalHeight = quota ? Math.min(340, maxHeight) : Math.min(maxHeight, beside ? Math.max(measured.body, measured.choices + 12) : measured.body + (choices ? measured.choices + 8 : 0));
+  const bodyHeight = Math.min(measured.body, totalHeight, choices && !beside ? Math.max(88, maxHeight - Math.min(measured.choices + 8, 250)) : maxHeight);
   const head = { x: suppliedShape?.tail[1].x === 3 ? -20 : 900, y: suppliedShape ? suppliedShape.tail[1].y - 5 : bodyHeight * .7 };
   const shape = !layout && suppliedShape ? suppliedShape : createQuickBubbleShape(beside ? 320 : width, Math.min(bodyHeight, viewport.height), head);
   const choicesTop = beside ? 6 : bodyHeight;
   const choicesLeft = beside ? (bodyX ? 14 : 314) : 14;
   useLayoutEffect(() => {
-    let frame = 0;
     const measure = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const headerHeight = header.current?.getBoundingClientRect().height ?? 0;
-        const footerHeight = bottom.current?.getBoundingClientRect().height ?? 0;
-        const natural = headerHeight + (body.current?.getBoundingClientRect().height ?? 0) + footerHeight + (headerHeight ? 7 : 0) + (footerHeight ? 7 : 0);
-        const next = { body: quota ? 340 : Math.max(88, Math.min(360, Math.ceil(natural + 38))), choices: choiceRef.current?.scrollHeight ?? 0 };
-        setMeasured(old => old.body === next.body && old.choices === next.choices ? old : next);
-      });
+      const headerHeight = header.current?.getBoundingClientRect().height ?? 0;
+      const footerHeight = bottom.current?.getBoundingClientRect().height ?? 0;
+      const natural = headerHeight + (body.current?.getBoundingClientRect().height ?? 0) + footerHeight + (headerHeight ? 7 : 0) + (footerHeight ? 7 : 0);
+      const next = { body: quota ? 340 : Math.max(88, Math.min(360, Math.ceil(natural + 38))), choices: choiceRef.current?.scrollHeight ?? 0 };
+      setMeasured(old => old.body === next.body && old.choices === next.choices ? old : next);
     };
     const observer = new ResizeObserver(measure);
     for (const element of [header.current, body.current, bottom.current, choiceRef.current]) if (element) observer.observe(element);
-    measure(); return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+    measure(); return () => observer.disconnect();
   }, [width, compose, quota, title, Boolean(choices)]);
   useLayoutEffect(() => {
-    let canceled = false, frame = 0;
-    frame = requestAnimationFrame(() => {
-      const regions = Array.from(choiceRef.current?.querySelectorAll('button') ?? []).map(button => button.getBoundingClientRect()).map(rect => ({ x: rect.x, y: Math.max(choicesTop, rect.y), width: rect.width, height: Math.max(0, Math.min(totalHeight - 8, rect.bottom) - Math.max(choicesTop, rect.y)), radius: 12 })).filter(rect => rect.height > 0);
-      const request = { id: layout?.id ?? 0, width, height: totalHeight, body: { x: bodyX, y: 0, width: beside ? 320 : width, height: Math.min(bodyHeight, totalHeight) }, regions };
-      const key = JSON.stringify(request);
-      const unchanged = lastLayout.current === key;
-      lastLayout.current = key;
-      const operation = unchanged ? Promise.resolve() : layout && window.pet.layoutQuickBubble ? window.pet.layoutQuickBubble(request) : window.pet.resizeQuickBubble(totalHeight);
-      void operation.then(() => { frame = requestAnimationFrame(() => { frame = requestAnimationFrame(() => { if (!canceled && layout) void window.pet.confirmQuickLayout(layout.id).catch(() => {}); }); }); }).catch(() => { lastLayout.current = ''; });
-    });
-    return () => { canceled = true; cancelAnimationFrame(frame); };
+    let canceled = false;
+    const regions = Array.from(choiceRef.current?.querySelectorAll('button') ?? []).map(button => button.getBoundingClientRect()).map(rect => ({ x: rect.x, y: Math.max(choicesTop, rect.y), width: rect.width, height: Math.max(0, Math.min(totalHeight - 8, rect.bottom) - Math.max(choicesTop, rect.y)), radius: 12 })).filter(rect => rect.height > 0);
+    const request = { id: layout?.id ?? 0, width, height: totalHeight, body: { x: bodyX, y: 0, width: beside ? 320 : width, height: Math.min(bodyHeight, totalHeight) }, regions };
+    const key = JSON.stringify(request);
+    const unchanged = lastLayout.current === key;
+    lastLayout.current = key;
+    const operation = unchanged ? Promise.resolve() : layout && window.pet.layoutQuickBubble ? window.pet.layoutQuickBubble(request) : window.pet.resizeQuickBubble(totalHeight);
+    // Hidden native windows can defer animation frames for seconds. The layout
+    // commit and resize event are sufficient; never wait for a hidden paint.
+    void operation.then(() => {
+      if (canceled || !layout) return;
+      if (innerWidth !== viewport.width || innerHeight !== viewport.height) {
+        setViewport({ width: innerWidth, height: innerHeight });
+        return;
+      }
+      void window.pet.confirmQuickLayout(layout.id).catch(() => {});
+    }).catch(() => { lastLayout.current = ''; });
+    return () => { canceled = true; };
   }, [layout?.id, width, totalHeight, bodyHeight, bodyX, measured.choices, viewport.width, viewport.height, choices, choiceScroll]);
   return <main className={`quick-shell ${quota ? 'quota-shell' : compose ? 'compose-shell' : 'reply-shell'}`} aria-label={quota ? 'Codex 额度小气泡' : compose ? '龙娘输入气泡' : '龙娘回复气泡'}>
     <svg className="quick-surface" width={viewport.width} height={viewport.height} viewBox={`0 0 ${viewport.width} ${viewport.height}`} aria-hidden="true"><path d={shape.path} transform={`translate(${bodyX} 0)`} /></svg>

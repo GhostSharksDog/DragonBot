@@ -1,6 +1,6 @@
 {
   "name": "dragon-pet",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "private": true,
   "description": "龙娘桌宠 · Codex 桌面助手",
   "main": "dist/main/index.cjs",
