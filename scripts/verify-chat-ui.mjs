@@ -33,8 +33,16 @@ try{
       if(s.chat.messages.length>before.chat.messages.length&&s.chat.status==='ready'&&s.chat.messages.at(-1)?.role==='assistant'&&s.chat.messages.at(-1)?.text.includes('气泡聊天成功')){done=true;break;}
     }
     assert(done,'Chat response timed out');
-    await bubble.waitForFunction(()=>document.querySelector('.quick-reply-text')?.textContent.includes('气泡聊天成功'),{},{timeout:10000});
     proof.sent=true;
+    // Chrome or an outside click can legitimately collapse the bubble. Reopen it
+    // as a character click would, then verify the visible reply separately.
+    if(!process.argv.includes('--expect-auto-reply'))await bubble.evaluate(()=>window.pet.showReply());
+    await bubble.waitForFunction(()=>document.querySelector('.quick-reply-text')?.textContent.includes('气泡聊天成功'),{},{timeout:10000});
+    if(process.argv.includes('--expect-auto-reply')){
+      let visible=false;
+      for(let i=0;i<30&&!visible;i++){visible=await app.evaluate(({BrowserWindow})=>Boolean(BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('view=bubble'))?.isVisible()));if(!visible)await new Promise(r=>setTimeout(r,100));}
+      assert(visible,'Completed Chat reply appears without reopening the bubble manually.');proof.autoReply=true;
+    }
   }
   const after=await bubble.evaluate(()=>window.pet.getState());
   assert.equal(after.assistant.threadId,before.assistant.threadId);assert.equal(after.assistant.activeTurnId,before.assistant.activeTurnId);

@@ -31,6 +31,14 @@ let browserSetup: BrowserSetupService;
 let chat: ChatService;
 let foreground: 'chat' | 'codex' = 'chat';
 let sendingMessage = false;
+let chatWasActive = false;
+function chatChanged() {
+  const state=chat?.getSnapshot();if(!state)return;
+  const completed=chatWasActive&&!state.active&&state.status==='ready'&&state.messages.at(-1)?.role==='assistant';
+  chatWasActive=state.active;
+  if(completed&&foreground==='chat'&&!userHidden&&pet?.isVisible()&&bubbleMode==='hidden'&&!assistant.getSnapshot().pending.length){quickView='chat';showBubbleMode('quick',panelTab,false);}
+  else publish();
+}
 function currentActivity(): Activity { const a=assistant.getSnapshot(); if(a.pending.length||a.activeTurnId)return a.activity;const c=chat?.getSnapshot();return c?.active?(c.messages.at(-1)?.role==='assistant'?'speaking':'thinking'):a.activity; }
 let projects: ProjectService;
 let outsideClickMonitor: QuickOutsideClickMonitor | undefined;
@@ -375,7 +383,7 @@ async function main() {
   projects = new ProjectService({ dataDir, helperPath: path.join(app.getAppPath().replace(/\.asar$/i, '.asar.unpacked'), 'dist/native/desktop-chat.exe'), getSettings: () => settings.value, saveSettings: patch => { settings.update(patch); publish(); }, listThreads: () => assistant.listProjectThreads(), readThread: id => assistant.readProjectThread(id), uniqueTitle: (id, title) => assistant.uniqueProjectTitle(id, title), openLink: async url => { if (!/^codex:\/\/threads\/[0-9a-f-]{36}$/i.test(url)) throw new Error('对话链接无效。'); await shell.openExternal(url); }, choose: (question, choices) => assistant.chooseLocal(question, choices), notify: text => assistant.notifyLocal(text), changed: () => publish() });
   await projects.initialize();
   const chatConfig=async()=>({...await browserSetup.getConnectionConfig(),userDataDir:path.join(dataDir,'chat','browser-profile'),profileDirectory:'Default'});
-  chat=new ChatService({dataDir,getSettings:()=>settings.value.chat!,saveModel:model=>settings.update({chat:{...settings.value.chat!,model}}),createBrowser:async()=>new ChatChrome(await chatConfig()),openLogin:async()=>openManualChatLogin(await chatConfig()),changed:()=>publish()});
+  chat=new ChatService({dataDir,getSettings:()=>settings.value.chat!,saveModel:model=>settings.update({chat:{...settings.value.chat!,model}}),createBrowser:async()=>new ChatChrome(await chatConfig()),openLogin:async()=>openManualChatLogin(await chatConfig()),changed:chatChanged});
   const securePreferences = { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true };
   pet = new BrowserWindow({ width: Math.round(200 * settings.value.scale), height: Math.round(240 * settings.value.scale), frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false, resizable: false, skipTaskbar: true, focusable: false, show: false, webPreferences: securePreferences });
   bubble = new BrowserWindow({ width: 440, height: 680, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false, resizable: false, skipTaskbar: true, show: false, webPreferences: { ...securePreferences, backgroundThrottling: false } });
