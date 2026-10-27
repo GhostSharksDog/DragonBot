@@ -25,6 +25,13 @@ try {
   for (const page of [pet, bubble]) page.on('pageerror', e => result.errors.push(e.message));
   await bubble.waitForFunction(() => Boolean(window.pet));
   assert.equal(await bubble.evaluate(() => devicePixelRatio), deviceScale);
+  await pet.evaluate(() => {
+    globalThis.__pointerProbe = [];
+    for (const name of ['pointerdown', 'pointerup', 'pointercancel', 'lostpointercapture']) document.addEventListener(name, e => {
+      globalThis.__pointerProbe.push({ type: name, at: Date.now(), x: e.screenX, y: e.screenY, button: e.button, target: e.target.closest('button')?.className });
+      if (globalThis.__pointerProbe.length > 16) globalThis.__pointerProbe.shift();
+    }, true);
+  });
   for (let i = 0; i < 300; i++) { const s = await bubble.evaluate(() => window.pet.getState()); if (s.assistant.connection === 'ready') break; if (s.assistant.connection === 'error') throw Error(s.assistant.error); await sleep(100); }
   const initial = await bubble.evaluate(() => window.pet.getState()); assert.equal(initial.assistant.connection, 'ready');
   const native = () => app.evaluate(({ BrowserWindow }) => { const b = BrowserWindow.getAllWindows().find(w => w.webContents.getURL().includes('view=bubble')); return { visible: b.isVisible(), ...b.getBounds() }; });
@@ -38,10 +45,12 @@ try {
         else await pet.locator('.pet-button').dblclick({ position: { x: 100, y: 100 }, delay: 50 });
         let state;
         for (let i = 0; i < 500; i++) { state = await native(); if (state.visible) break; await sleep(10); }
+        if (!state.visible) result.failure = { kind, native: state, events: await pet.evaluate(() => globalThis.__pointerProbe), mode: await bubble.evaluate(async () => { const s = await window.pet.getState(); return { mode: s.bubbleMode, view: s.quickView, id: s.quickLayout.id }; }) };
         assert(state.visible, `${kind} bubble must become visible`);
         const snapshot = await bubble.evaluate(() => window.pet.getState());
         assert.equal(snapshot.quickView, kind === 'icon' ? 'compose' : kind === 'double' ? 'quota' : 'chat');
-        if (kind === 'double') assert.equal(state.height, 340);
+        // Windows rounds physical pixels back to DIP at fractional display scales.
+        if (kind === 'double') assert(Math.abs(state.height - 340) <= 1);
         result.samples.push({ kind, idleMs, revision: snapshot.quickLayout.id, observedMs: Date.now() - opened });
       }
       console.log(JSON.stringify({ completed: kind, idleMs }));
