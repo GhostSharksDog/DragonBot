@@ -59,4 +59,13 @@ test('another user message prevents attributing an unrelated reply to the reques
   const {service,browser}=setup(t);await service.send('你好');browser.state.messages.push({id:'other',role:'user',text:'其他输入'});browser.respond();await until(()=>service.getSnapshot().status==='uncertain');assert.equal(service.getSnapshot().messages.filter(m=>m.role==='assistant').length,0);
 });
 test('disconnect preserves outbox and changes no task state',async t=>{const {service,browser}=setup(t);await service.send('你好');browser.onclose?.();assert.equal(service.getSnapshot().status,'uncertain');assert.equal(service.getSnapshot().active,false);await assert.rejects(service.send('重发'));});
+test('first reply at ChatGPT local conversation URL is read and retained for resume',async t=>{
+  const {service,browser}=setup(t);await service.send('第一次聊天');browser.state.url='https://chatgpt.com/c/local-chatgpt%3Anew-conversation';browser.respond('你好');
+  await until(()=>service.getSnapshot().status==='ready');assert.equal(service.getSnapshot().messages.at(-1)?.text,'你好');
+});
+test('a completed DOM marker does not truncate a reply while the stop control remains',async t=>{
+  const {service,browser}=setup(t);await service.send('你好');browser.respond('第一部分');browser.state.generating=true;
+  await until(()=>service.getSnapshot().messages.some(m=>m.text==='第一部分'));assert.equal(service.getSnapshot().active,true);
+  browser.state.messages.at(-1)!.text='完整回复';browser.state.generating=false;await until(()=>service.getSnapshot().status==='ready');assert.equal(service.getSnapshot().messages.at(-1)?.text,'完整回复');
+});
 test('chat settings and lasting website grants survive restart',t=>{const {dir}=setup(t);const settings=new SettingsStore(dir);settings.update({chat:{mode:'chat',model:'GPT-test',effort:'high'},grant:{folders:[dir],origins:['https://example.com'],browserInput:true}});const reloaded=new SettingsStore(dir);assert.deepEqual(reloaded.value.chat,settings.value.chat);assert.deepEqual(reloaded.value.grant,{folders:[],origins:['https://example.com'],browserInput:true});});

@@ -3,7 +3,7 @@ import type { ChatMessage } from './types';
 export type SendMode = 'auto' | 'chat' | 'task';
 export type MessageRoute = 'chat' | 'task' | 'project' | 'choose';
 export interface ChatSettings { mode: SendMode; model: string; effort: 'high' }
-export interface ChatConversation { id: string; title: string; url: string | null; messages: ChatMessage[]; updatedAt: number }
+export interface ChatConversation { id: string; title: string; url: string | null; messages: ChatMessage[]; updatedAt: number; lastWire?: string }
 export interface ChatSnapshot {
   status: 'disconnected' | 'connecting' | 'login-required' | 'setup-required' | 'ready' | 'sending' | 'streaming' | 'uncertain' | 'error';
   message: string; model: string; effort: string; conversationId: string | null;

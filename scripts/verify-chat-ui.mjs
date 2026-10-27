@@ -14,6 +14,8 @@ try{
   let bubble;for(let i=0;i<200&&!bubble;i++){bubble=app.windows().find(w=>w.url().includes('view=bubble'));await new Promise(r=>setTimeout(r,100));}assert(bubble);
   bubble.on('pageerror',e=>proof.errors.push(e.message));await bubble.waitForFunction(()=>Boolean(window.pet));
   await bubble.evaluate(()=>window.pet.connectChat());
+  for(let i=0;i<90;i++){const state=await bubble.evaluate(()=>window.pet.getState());if(!state.chat.active)break;await new Promise(r=>setTimeout(r,500));}
+  if(process.argv.includes('--new-chat')){await bubble.evaluate(()=>window.pet.newChat());await bubble.evaluate(()=>window.pet.connectChat());}
   const before=await bubble.evaluate(()=>window.pet.getState());assert.equal(before.chat.status,'ready');assert.equal(before.chat.effort,'high');assert(before.chat.model);
   proof.mode='ordinary Chat';proof.model=before.chat.model;proof.effort=before.chat.effort;
   await bubble.evaluate(()=>window.pet.openComposer());await bubble.locator('.compose-shell').waitFor();

@@ -2,7 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { existsSync } from 'node:fs';
-import { readChatPage } from '../src/main/chat/page';
+import { readChatPage, isChatUrl } from '../src/main/chat/page';
+test('accepts the new-conversation URL used by ChatGPT without accepting auth or other hosts',()=>{
+  assert(isChatUrl('https://chatgpt.com/c/local-chatgpt%3A9e9a59c5-b4ac-46ad-8294-0b593481b4d8'));
+  assert(isChatUrl('https://chatgpt.com/c/local-chatgpt:9e9a59c5-b4ac-46ad-8294-0b593481b4d8'));
+  assert(!isChatUrl('https://chatgpt.com/auth/login'));assert(!isChatUrl('https://example.com/c/test'));
+});
 const chrome=process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe';
 test('Chat DOM reader preserves paragraph text, identifies high and message IDs, rejects auth pages', {skip:!existsSync(chrome)},async()=>{
   const browser=await chromium.launch({executablePath:chrome,headless:true});

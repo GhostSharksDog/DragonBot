@@ -162,12 +162,11 @@ export class OwnedChromeClient implements BrowserClient {
   close() { return this.cdp.close(); }
 }
 
-export async function launchOwnedChrome(config: BrowserConnectionConfig, initialUrl = 'about:blank'): Promise<CdpConnection> {
+export async function launchOwnedChrome(config: BrowserConnectionConfig): Promise<CdpConnection> {
   if (!path.isAbsolute(config.executablePath) || !path.isAbsolute(config.userDataDir) || config.profileDirectory !== 'Default') throw new Error('独立 Chrome 配置无效。');
   await mkdir(config.userDataDir, { recursive: true });
   const profile = await realpath(config.userDataDir);
   if (!profile.toLowerCase().endsWith(`${path.sep}browser-profile`)) throw new Error('仅允许使用桌宠自己的浏览器目录。');
-  if(initialUrl!=='about:blank'&&!/^https:\/\/chatgpt\.com\/(?:c\/[a-zA-Z0-9-]+)?\/?$/.test(initialUrl))throw Error('浏览器初始页面无效。');
   const startup=['--restore-last-session'];
   const child = spawn(config.executablePath, [`--user-data-dir=${profile}`, '--profile-directory=Default', '--remote-debugging-pipe', '--no-first-run', '--no-default-browser-check', '--disable-backgrounding-occluded-windows', ...startup], { windowsHide: false, stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
   const cdp = new CdpConnection(child, child.stdio[3] as Writable, child.stdio[4] as Readable);

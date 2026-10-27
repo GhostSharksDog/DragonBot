@@ -33,5 +33,6 @@ export function readChatPage(): ChatPageState {
   return {url,loggedIn,mode,model,effort,draft,generating:controls.some(c=>/stop-button|stop-generating/.test(c.testId)||/^(?:Stop generating|Stop streaming|停止生成|停止回答|停止)$/.test(c.label)),messages,problem,controls};
 }
 
-export function isChatUrl(value: string): boolean {try{const u=new URL(value);return u.origin==='https://chatgpt.com'&&/^\/(?:c\/[a-zA-Z0-9-]+)?\/?$/.test(u.pathname)&&!u.username&&!u.password;}catch{return false;}}
+// New ChatGPT conversations first use a local-chatgpt: UUID in the browser URL.
+export function isChatUrl(value: string): boolean {try{const u=new URL(value);return u.origin==='https://chatgpt.com'&&/^\/(?:c\/(?:local-chatgpt(?::|%3[aA]))?[a-zA-Z0-9-]+)?\/?$/.test(u.pathname)&&!u.username&&!u.password;}catch{return false;}}
 export const normalizedMessage=(text:string)=>text.replace(/\r\n/g,'\n').trim();

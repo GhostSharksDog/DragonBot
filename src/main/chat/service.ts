@@ -63,7 +63,21 @@ export class ChatService {
         browser.onclose=()=>{if(this.browser!==browser)return;this.browser=null;++this.generation;clearTimeout(this.timer);this.publish({status:this.outbox?'uncertain':'disconnected',active:false,message:this.outbox?'连接中断，请核对消息结果，不会自动重发。':'普通 Chat 窗口已关闭',error:null});};
         try{await browser.connect(this.current?.url);}catch(error){this.browser=null;await browser.close();throw error;}
       }
-      if(this.outbox){this.reconcileStarted=Date.now();await this.reconcile(await this.browser.read());if(this.outbox)return;}
+      if(this.outbox){
+        let page=await this.browser.read();
+        if(!page.messages.some(m=>m.role==='user'&&normalizedMessage(m.text)===normalizedMessage(this.outbox!.wire))&&this.browser.recover){
+          const recovered=await this.browser.recover(this.outbox.wire);if(recovered){page=recovered;this.current!.url=page.url;this.save();}
+        }
+        this.reconcileStarted=Date.now();await this.reconcile(page);if(this.outbox)return;
+      }
+      if(this.current?.lastWire&&this.browser.recover){
+        const page=await this.browser.read(),lastUser=[...this.current.messages].reverse().find(m=>m.role==='user');
+        if(lastUser&&!page.messages.some(m=>m.id===lastUser.id)){
+          const recovered=await this.browser.recover(this.current.lastWire);
+          if(!recovered){this.publish({status:'setup-required',active:false,message:'暂时无法找到已保存的普通聊天，请显示窗口核对，或明确开始新聊天。'});return;}
+          this.current.url=recovered.url;this.save();
+        }
+      }
       const page=await this.browser.configure(this.options.getSettings().model);
       this.applySetup(page);
     }catch(error){this.issue(error);throw error;}
@@ -103,13 +117,18 @@ export class ChatService {
     try {
       this.publish({status:'sending',active:true,error:null,message:'正在发送普通聊天…'});
       const before=await browser.read();
-      if(this.current?.url&&this.current.url!==before.url)throw Error('专用窗口切换了对话，请检查连接后再发送。');
+      if(this.current?.url&&this.current.url!==before.url){
+        const lastUser=[...this.current.messages].reverse().find(m=>m.role==='user');
+        if(/local-chatgpt/.test(this.current.url)&&lastUser&&before.messages.some(m=>m.id===lastUser.id)&&isChatUrl(before.url)){this.current.url=before.url;this.save();}
+        else throw Error('专用窗口切换了对话，请检查连接后再发送。');
+      }
       if(!this.current&&before.messages.length)throw Error('专用窗口有其他对话，请点击“新聊天”，不会写入原有对话。');
       if(before.draft.trim()||before.generating)throw Error('专用窗口有草稿或正在生成，请先处理；没有覆盖内容。');
       if(before.messages.some(m=>!m.id))throw Error('网页消息编号无法识别，请检查页面；没有发送。');
       if(!this.current){this.current={id:randomUUID(),title:text.trim().slice(0,40),url:null,messages:[],updatedAt:Date.now()};this.conversations.push(this.current);}
-      const wire=this.current.messages.length?text.trim():concise+text.trim();
-      prepared={id:randomUUID(),conversationId:this.current.id,text:text.trim(),wire,beforeIds:before.messages.map(m=>m.id),url:before.url,dispatched:false,createdAt:Date.now()};
+      const id=randomUUID();
+      const wire=(this.current.messages.length?'':concise)+text.trim()+`\n\n[桌宠消息编号：${id}。此编号仅用于核对，请勿在回复中复述。]`;
+      prepared={id,conversationId:this.current.id,text:text.trim(),wire,beforeIds:before.messages.map(m=>m.id),url:before.url,dispatched:false,createdAt:Date.now()};
       this.outbox=prepared;this.reconcileStarted=Date.now();this.save();
       await browser.send(wire,this.state.model,async()=>{prepared!.dispatched=true;this.save();});
       // Dispatch completed; only reads follow. Sending is never retried automatically.
@@ -128,7 +147,10 @@ export class ChatService {
       throw Error('普通 Chat 登录失效或页面未能加载。请核对专用窗口，消息不会重发。');
     }
     this.unavailableSince=0;
-    if(conversation.url&&conversation.url!==page.url)throw Error('专用窗口已切换对话；请回到这次聊天核对结果。');
+    if(conversation.url&&conversation.url!==page.url){
+      if(/local-chatgpt/.test(conversation.url)&&page.messages.some(m=>m.role==='user'&&(m.id===box.userId||normalizedMessage(m.text)===normalizedMessage(box.wire)))){conversation.url=page.url;this.save();}
+      else throw Error('专用窗口已切换对话；请回到这次聊天核对结果。');
+    }
     const matches=page.messages.filter(m=>m.role==='user'&&!box.beforeIds.includes(m.id)&&normalizedMessage(m.text)===normalizedMessage(box.wire));
     const user=box.userId?page.messages.find(m=>m.id===box.userId&&m.role==='user'):matches.length===1?matches[0]:null;
     if(!user?.id){
@@ -145,11 +167,11 @@ export class ChatService {
       if(existing)existing.text=response.text;else conversation.messages.push({id:response.id,role:'assistant',text:response.text,channel:'chat',createdAt:Date.now()});
       if(this.lastText!==response.text){this.lastText=response.text;this.stableSince=Date.now();}
       // An explicit completed turn is preferred; legacy pages require a stable reply and its action bar.
-      const complete=response.complete===true||(!page.generating&&Date.now()-this.stableSince>1800&&page.controls.some(c=>/^(重新生成回复|Regenerate response)$/.test(c.label)));
-      if(complete){this.outbox=null;conversation.updatedAt=Date.now();this.save();this.publish({status:'ready',active:false,message:'普通 Chat 已回复',error:null});return;}
+      const complete=!page.generating&&(response.complete===true||(Date.now()-this.stableSince>1800&&page.controls.some(c=>/^(重新生成回复|Regenerate response)$/.test(c.label))));
+      if(complete){conversation.lastWire=box.wire;this.outbox=null;conversation.updatedAt=Date.now();this.save();this.publish({status:'ready',active:false,message:'普通 Chat 已回复',error:null});return;}
     }
     if(page.problem)throw Error(page.problem);
-    if(Date.now()-box.createdAt>(this.options.timeoutMs??180000))throw Error('等待普通 Chat 回复超时。请核对结果；不会重发或改用 Codex。');
+    if(Date.now()-box.createdAt>(this.options.timeoutMs??180000)&&Date.now()-this.reconcileStarted>15000)throw Error('等待普通 Chat 回复超时。请核对结果；不会重发或改用 Codex。');
     this.save();this.publish({status:'streaming',active:true,message:'普通 Chat 正在回复…',error:null});this.schedule();
   }
   private async poll(){

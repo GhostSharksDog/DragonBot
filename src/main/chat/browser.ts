@@ -11,6 +11,7 @@ export interface ChatBrowser {
   configure(model:string):Promise<ChatPageState>; show():Promise<void>;
   navigate(url:string):Promise<void>; send(text:string, model:string, beforeDispatch:()=>Promise<void>):Promise<void>;
   stop():Promise<void>; close():Promise<void>;
+  recover?(wire:string):Promise<ChatPageState|null>;
 }
 
 /** Fixed ChatGPT UI operations; no browser-task tool or arbitrary JS IPC. */
@@ -22,7 +23,7 @@ export class ChatChrome implements ChatBrowser {
     if(this.cdp)return;
     if(manualWindows.get(this.config.userDataDir)?.exitCode===null)throw Error('登录窗口仍然打开。请手动关闭这个专用窗口，再检查连接。');
     const initial=url&&isChatUrl(url)?url:'https://chatgpt.com/';
-    const cdp=await launchOwnedChrome(this.config,initial);this.cdp=cdp;
+    const cdp=await launchOwnedChrome(this.config);this.cdp=cdp;
     cdp.onclose=()=>{if(this.cdp===cdp){this.cdp=null;this.session='';this.world=0;this.onclose?.();}};
     try{
       let {targetInfos}=await cdp.request('Target.getTargets');
@@ -32,7 +33,7 @@ export class ChatChrome implements ChatBrowser {
       const targetId=target?.targetId??(await cdp.request('Target.createTarget',{url:initial})).targetId;
       this.session=(await cdp.request('Target.attachToTarget',{targetId,flatten:true})).sessionId;
       await cdp.request('Page.enable',{},this.session);
-      if(target&&target.url!==initial){const existing=await this.read();if(existing.draft.trim()||existing.generating)throw Error('专用窗口有未完成内容，请先处理草稿或回复。');await this.navigate(initial);}
+      if(target&&target.url!==initial&&(url||!isChatUrl(target.url))){const existing=await this.read();if(existing.draft.trim()||existing.generating)throw Error('专用窗口有未完成内容，请先处理草稿或回复。');await this.navigate(initial);}
       const deadline=Date.now()+20000;
       while(Date.now()<deadline){const state=await this.read();if(state.loggedIn&&state.effort&&(!/\/c\//.test(initial)||state.messages.length))break;await new Promise(r=>setTimeout(r,250));}
       await this.closeExtraTabs(targetId);
@@ -70,6 +71,22 @@ export class ChatChrome implements ChatBrowser {
     return {...state,model:state.model||this.verifiedModel,models:this.models};
   }
   async show(){await this.rpc().request('Page.bringToFront',{},this.session);}
+  async recover(wire:string):Promise<ChatPageState|null>{
+    const original=await this.read();if(!original.loggedIn||original.draft.trim()||original.generating)return null;
+    // Only new requests carry a unique marker. Older ambiguous requests need manual selection.
+    if(!/\[桌宠消息编号：[0-9a-f-]{36}/i.test(wire))return null;
+    let candidates:string[]=[];
+    for(let i=0;i<20&&!candidates.length;i++){
+      candidates=await this.evaluate(`Array.from(new Set(Array.from(document.querySelectorAll('a[href*="/c/"]')).map(e=>e.href))).filter(value=>{const u=new URL(value);const parts=u.pathname.split('/');return u.origin==='https://chatgpt.com'&&parts.length===3&&parts[1]==='c'&&/^[0-9a-f-]{36}$/i.test(parts[2]);}).slice(0,5)`);
+      if(!candidates.length)await new Promise(r=>setTimeout(r,250));
+    }
+    for(const url of candidates){
+      await this.navigate(url);const page=await this.read();
+      if(page.messages.some(m=>m.role==='user'&&normalizedMessage(m.text)===normalizedMessage(wire)))return page;
+      if(page.draft.trim()||page.generating)return null;
+    }
+    if(isChatUrl(original.url))await this.navigate(original.url);return null;
+  }
   async navigate(url:string){
     if(!isChatUrl(url))throw Error('普通 Chat 对话地址无效。');
     const result=await this.rpc().request('Page.navigate',{url},this.session);if(result.errorText)throw Error(result.errorText);
